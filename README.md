@@ -71,3 +71,4 @@ Add an entry to `SECTION_PRESETS` in `nodes.ts` (it appears under Sections in th
 - Video and Lottie export as a linked thumbnail / fallback image (email clients can't play them).
 - Text is edited in the inspector, not inline on the canvas.
 - Single user, browser-only storage. `storage.ts` is the seam for accounts/DB later.
+# b-email-builder
