@@ -1,13 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Copy, Download, FileJson, Info, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
+import { Download, FileJson, Info, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
+import CopyButton from './CopyButton';
+import GuideDialog from './GuideDialog';
 import { useStore } from '@/lib/store';
 import { TEMPLATES } from '@/lib/templates';
 import { documentToHtml, lintDoc } from '@/lib/render';
-import { backupJson, copyText, download, slug } from '@/lib/docs';
+import { backupJson, download, slug } from '@/lib/docs';
 
-export type DialogName = 'new' | 'library' | 'export' | null;
+export type DialogName = 'new' | 'library' | 'export' | 'guide' | null;
 
 function Modal({ open, onClose, title, wide, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
@@ -114,13 +116,11 @@ function ExportDialog() {
         </span>
       </div>
       <div className="exp-actions">
-        <button className="btn btn-ink" onClick={() => { download(`${base}.html`, documentToHtml(doc, { marker }), 'text/html'); notify(`Downloaded ${base}.html`); }}>
+        <button className="btn btn-ink" onClick={() => { download(`${base}.html`, documentToHtml(doc, { marker }), 'text/html'); notify(`Downloaded ${base}.html`, { kind: 'success' }); }}>
           <Download size={15} /> Download HTML
         </button>
-        <button className="btn" onClick={async () => notify((await copyText(documentToHtml(doc))) ? 'Clean HTML copied' : 'Couldn’t copy')}>
-          <Copy size={15} /> Copy HTML
-        </button>
-        <button className="btn" onClick={() => { download(`${base}.srmail.json`, backupJson(doc), 'application/json'); notify(`Downloaded ${base}.srmail.json`); }}>
+        <CopyButton getText={() => documentToHtml(doc)} toast="Clean HTML copied to clipboard" />
+        <button className="btn" onClick={() => { download(`${base}.srmail.json`, backupJson(doc), 'application/json'); notify(`Downloaded ${base}.srmail.json`, { kind: 'success' }); }}>
           <FileJson size={15} /> Backup (.json)
         </button>
       </div>
@@ -143,6 +143,7 @@ export default function Dialogs({ open, onClose }: { open: DialogName; onClose: 
       <Modal open={open === 'new'} onClose={onClose} title="New email"><NewDialog onClose={onClose} /></Modal>
       <Modal open={open === 'library'} onClose={onClose} title="My emails"><LibraryDialog onClose={onClose} /></Modal>
       <Modal open={open === 'export'} onClose={onClose} title="Export" wide><ExportDialog /></Modal>
+      <Modal open={open === 'guide'} onClose={onClose} title="How to send your email" wide><GuideDialog /></Modal>
     </>
   );
 }

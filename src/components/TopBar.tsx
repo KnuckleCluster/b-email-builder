@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { Download, FilePlus2, FolderOpen, Redo2, Undo2, Upload } from 'lucide-react';
+import { Download, FilePlus2, FolderOpen, Redo2, Send, Undo2, Upload } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { parseImport } from '@/lib/docs';
 import type { DialogName } from './Dialogs';
@@ -19,8 +19,8 @@ export default function TopBar({ openDialog }: { openDialog: (d: DialogName) => 
     if (!f) return;
     const doc = parseImport(await f.text());
     const { importDoc, notify } = useStore.getState();
-    if (doc) { importDoc(doc); notify(`Imported “${doc.name}”`); }
-    else notify('That file wasn’t made with this app (no backup marker found).');
+    if (doc) { importDoc(doc); notify(`Imported “${doc.name}”`, { kind: 'success' }); }
+    else notify('That file wasn’t made with this app (no backup marker found).', { kind: 'error' });
   }
 
   return (
@@ -44,6 +44,7 @@ export default function TopBar({ openDialog }: { openDialog: (d: DialogName) => 
         <button className="btn" onClick={() => openDialog('library')}><FolderOpen size={15} /><span>My emails</span></button>
         <button className="btn" onClick={() => fileRef.current?.click()}><Upload size={15} /><span>Import</span></button>
         <input ref={fileRef} type="file" accept=".html,.htm,.json" hidden onChange={onFile} />
+        <button className="btn" onClick={() => openDialog('guide')} title="How to send your email, and share feedback"><Send size={15} /><span>How to send</span></button>
         <button className="btn btn-accent" onClick={() => openDialog('export')}><Download size={15} /><span>Export</span></button>
       </div>
     </header>

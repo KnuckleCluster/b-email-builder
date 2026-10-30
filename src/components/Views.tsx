@@ -1,10 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Copy, Info, TriangleAlert } from 'lucide-react';
+import { Info, TriangleAlert } from 'lucide-react';
+import CopyButton from './CopyButton';
 import { useStore } from '@/lib/store';
 import { documentToHtml, lintDoc } from '@/lib/render';
-import { copyText } from '@/lib/docs';
 
 export function CodeView() {
   const doc = useStore((s) => s.doc);
@@ -15,9 +15,7 @@ export function CodeView() {
     <div className="codeview">
       <div className="codebar">
         <span>{lines.length} lines · {(new Blob([html]).size / 1024).toFixed(1)} KB · read-only (edit with blocks)</span>
-        <button className="btn" onClick={async () => useStore.getState().notify((await copyText(html)) ? 'HTML copied' : 'Couldn’t copy. Select the code manually.')}>
-          <Copy size={14} /> Copy HTML
-        </button>
+        <CopyButton getText={() => html} />
       </div>
       {checks.length > 0 && (
         <div className="checks" role="status">

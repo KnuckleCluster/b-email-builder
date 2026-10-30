@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Code2, Eye, Monitor, PenLine, Smartphone } from 'lucide-react';
+import { Check, Code2, Eye, Info, Monitor, PenLine, Smartphone, TriangleAlert } from 'lucide-react';
 import { useStore, type View } from '@/lib/store';
 import TopBar from './TopBar';
 import Palette from './Palette';
@@ -22,10 +22,19 @@ function Toast() {
   useEffect(() => {
     if (!toast) return;
     setShown(true);
-    const t = setTimeout(() => setShown(false), 2800);
+    const t = setTimeout(() => setShown(false), toast.action ? 6000 : 2800);
     return () => clearTimeout(t);
   }, [toast]);
-  return <div className={`toast ${shown ? 'show' : ''}`} role="status" aria-live="polite">{toast?.msg}</div>;
+  const Icon = toast?.kind === 'success' ? Check : toast?.kind === 'error' ? TriangleAlert : Info;
+  return (
+    <div className={`toast ${toast?.kind ?? 'info'} ${shown ? 'show' : ''}`} role="status" aria-live="polite">
+      <Icon size={16} className="toast-ico" />
+      <span>{toast?.msg}</span>
+      {toast?.action && (
+        <button className="toast-action" onClick={() => { toast.action!.run(); setShown(false); }}>{toast.action.label}</button>
+      )}
+    </div>
+  );
 }
 
 const TABS: { id: View; label: string; icon: typeof Eye }[] = [

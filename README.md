@@ -1,4 +1,4 @@
-# Branded Email Maker (v0.3)
+# Branded Email Maker (v0.4)
 
 Drag-and-drop builder for branded HTML emails. Next.js (App Router) + TypeScript + Zustand.
 
@@ -23,6 +23,20 @@ Support: Apple Mail, iOS and most Gmail accounts. Outlook desktop shows the plai
 
 ## Buttons and sizing
 Every element has Spacing (per side), and most have Width + Position. Buttons: *Fit to text*, *Custom %* (centered or aligned) or *Full width*.
+
+## Feedback (v0.4)
+The **How to send** window explains how to use the exported HTML and has a feedback form. The form posts to `src/app/api/feedback/route.ts`,
+which forwards it to ONE provider chosen by environment variables. Copy `.env.example` to `.env.local` (and add the same variables in
+Vercel > Settings > Environment Variables), then restart.
+
+| Option | Free tier | Setup |
+| --- | --- | --- |
+| n8n webhook (`FEEDBACK_WEBHOOK_URL`) | free | Webhook trigger + Gmail/SMTP node. Fields arrive under `body`: `subject`, `text`, `email`, `message`, `type`. Needs an always-on n8n URL (not a laptop tunnel). |
+| Resend (`RESEND_API_KEY`, `FEEDBACK_TO`) | 3,000/month, max 100/day | Without a verified domain it can only email the address you signed up with, which is fine for receiving feedback. |
+| Web3Forms (`WEB3FORMS_KEY`) | 250/month | Get a key by email, paste it in. No account needed. |
+
+Spam protection: hidden honeypot field, 5 messages/hour/IP (per server instance), length limits. Keys never reach the browser.
+Edit the extension link and app version in `src/lib/links.ts`.
 
 ## Desktop and mobile layouts (v0.2)
 - Every block has **Show on desktop / Show on mobile**. Hidden blocks stay in the design and appear as striped stubs in the editor.
@@ -49,6 +63,8 @@ src/lib/tree.ts        tree helpers: locate, insert, remove, clone
 src/lib/nodes.ts       node factories, section presets, row layouts, palette
 src/lib/dnd.ts         drop-target hit-testing + pointer drag controller
 src/lib/theme.ts       fonts, brand defaults, color tokens
+src/lib/links.ts       extension URL + app version
+src/app/api/feedback/  feedback endpoint (server side)
 src/lib/registry.ts    block definitions: defaults + inspector fields + palette
 src/lib/render.ts      block renderers, document export, marker encode/decode, lint checks
 src/lib/templates.ts   starter templates
@@ -71,4 +87,3 @@ Add an entry to `SECTION_PRESETS` in `nodes.ts` (it appears under Sections in th
 - Video and Lottie export as a linked thumbnail / fallback image (email clients can't play them).
 - Text is edited in the inspector, not inline on the canvas.
 - Single user, browser-only storage. `storage.ts` is the seam for accounts/DB later.
-# b-email-builder

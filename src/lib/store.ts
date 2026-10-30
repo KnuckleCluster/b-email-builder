@@ -23,11 +23,11 @@ interface State {
   lastAt: number;
   library: DocMeta[];
   status: 'saved' | 'saving';
-  toast: { id: number; msg: string } | null;
+  toast: { id: number; msg: string; kind: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } } | null;
   drag: DragState | null;
 
   init: () => void;
-  notify: (msg: string) => void;
+  notify: (msg: string, opts?: { kind?: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } }) => void;
   setView: (v: View) => void;
   setDevice: (d: Device) => void;
   select: (id: string | null) => void;
@@ -157,7 +157,7 @@ export const useStore = create<State>((set, get) => {
       set({ library: listDocs() });
     },
 
-    notify: (msg) => set({ toast: { id: Date.now(), msg } }),
+    notify: (msg, opts) => set({ toast: { id: Date.now(), msg, kind: opts?.kind ?? 'info', action: opts?.action } }),
     setView: (view) => set({ view }),
     setDevice: (device) => set({ device }),
     select: (selectedId) => set({ selectedId }),
@@ -200,11 +200,15 @@ export const useStore = create<State>((set, get) => {
         return { ...d, sections: secs };
       });
       set({ selectedId: copy.id, device: 'mobile' });
+      get().notify('Mobile-only copy created. You’re now editing the mobile layout.', { kind: 'success' });
     },
 
     removeNode: (id) => {
+      const loc = locate(get().doc.sections, id);
+      const label = loc ? (loc.node.kind === 'el' ? DEFS[loc.node.type!]?.label ?? 'element' : loc.node.kind === 'col' ? 'column' : loc.node.kind) : 'item';
       mutate((d) => ({ ...d, sections: prune(removeNode(d.sections, id)) }));
       if (!locate(get().doc.sections, get().selectedId || '')) set({ selectedId: null });
+      if (loc) get().notify(`Deleted ${label.toLowerCase()}`, { action: { label: 'Undo', run: () => get().undo() } });
     },
 
     duplicateNode: (id) => {
@@ -213,6 +217,7 @@ export const useStore = create<State>((set, get) => {
       const copy = cloneFresh(loc.node);
       mutate((d) => ({ ...d, sections: insertNode(d.sections, loc.parent ? loc.parent.id : null, loc.index + 1, copy) }));
       set({ selectedId: copy.id });
+      get().notify('Duplicated', { kind: 'success' });
     },
 
     moveSibling: (id, dir) => {
@@ -269,6 +274,7 @@ export const useStore = create<State>((set, get) => {
       const current: Shape[] = (propsFor(loc.node, device).shapes as Shape[]) || [];
       get().patchNode(loc.node.id, { shapes: [...current, shape] });
       set({ selectedId: loc.node.id });
+      get().notify('Shape added. Drag its handle on the canvas to move it.');
     },
 
     patchBrand: (patch) => mutate((d) => ({ ...d, brand: { ...d.brand, ...patch } }), `brand:${Object.keys(patch).join(',')}`),
@@ -291,6 +297,7 @@ export const useStore = create<State>((set, get) => {
       flush();
       const t = TEMPLATES.find((x) => x.id === templateId) ?? TEMPLATES[0];
       load(createDoc(t, t.id === 'blank' ? 'Untitled email' : t.label));
+      get().notify(t.id === 'blank' ? 'New blank email' : `New “${t.label}” email started`, { kind: 'success' });
     },
     openDoc: (id) => { flush(); const doc = normalizeDoc(loadDoc(id)); if (doc) load(doc); },
     duplicateDoc: (id) => {
@@ -307,6 +314,7 @@ export const useStore = create<State>((set, get) => {
         const doc = next ? normalizeDoc(loadDoc(next.id)) : null;
         load(doc ?? createDoc(TEMPLATES[0]));
       } else set({ library: listDocs() });
+      get().notify('Email deleted');
     },
     importDoc: (doc) => { flush(); load({ ...doc, id: uid('doc') }); }
   };
