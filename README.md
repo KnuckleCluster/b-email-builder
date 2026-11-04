@@ -1,4 +1,4 @@
-# Branded Email Maker (v0.4)
+# Branded Email Maker (v0.5)
 
 Drag-and-drop builder for branded HTML emails. Next.js (App Router) + TypeScript + Zustand.
 
@@ -23,6 +23,20 @@ Support: Apple Mail, iOS and most Gmail accounts. Outlook desktop shows the plai
 
 ## Buttons and sizing
 Every element has Spacing (per side), and most have Width + Position. Buttons: *Fit to text*, *Custom %* (centered or aligned) or *Full width*.
+
+## Send test email (v0.5)
+**Preview > Send test** (also in Export and the How to send window) emails the current design to an address the user types, via Brevo SMTP
+(`src/app/api/send-test/route.ts`, using `nodemailer`). Credentials are environment variables only: `BREVO_SMTP_USER`, `BREVO_SMTP_KEY`, `MAIL_FROM`
+(see `.env.example`). Never commit them. Add them in Vercel > Settings > Environment Variables and redeploy.
+
+- Brevo free tier is 300 emails/day. The route stops at `TEST_EMAIL_DAILY_CAP` (default 250) and the UI shows a friendly "busy / unavailable" message instead of an error.
+- Because it accepts any recipient, it is limited to 5 tests/hour per visitor, 3 per recipient per day, adds a "this is a test" banner, and has a honeypot field.
+  These limits live in server memory, so on serverless they are best-effort. If the app gets public traffic, add Upstash Redis (free) or Cloudflare Turnstile.
+- `MAIL_FROM` must be a sender you verified in Brevo (Senders, Domains & Dedicated IPs).
+
+## Inbox preview (v0.5)
+**Preview > Inbox** shows the subject and preheader as a desktop inbox row and a phone notification, with length hints.
+The pre-flight checks also warn when the HTML nears Gmail's ~102 KB clipping limit.
 
 ## Feedback (v0.4)
 The **How to send** window explains how to use the exported HTML and has a feedback form. The form posts to `src/app/api/feedback/route.ts`,

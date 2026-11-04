@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, ExternalLink, LoaderCircle, MessageSquare } from 'lucide-react';
+import { Check, Download, ExternalLink, FlaskConical, Heart, LoaderCircle, Mail, MessageSquare, Upload } from 'lucide-react';
 import { APP_VERSION, HTMAIL_URL } from '@/lib/links';
 import { documentToHtml } from '@/lib/render';
 import { useStore } from '@/lib/store';
+import { download, slug } from '@/lib/docs';
 import CopyButton from './CopyButton';
+import { Orbi } from './Mascot';
 
 type Status = 'idle' | 'sending' | 'sent' | 'error';
 const TYPES = ['Idea', 'Bug', 'Other'] as const;
@@ -97,27 +99,72 @@ function Feedback() {
 }
 
 export default function GuideDialog() {
+  const { setDialog, notify } = useStore.getState();
+  const getHtml = () => documentToHtml(useStore.getState().doc);
   return (
-    <div className="guide">
-      <p>Thank you for using this app, and I hope you find it very useful.</p>
-      <p>
-        It was originally built to be used with third-party email marketing software that lets you attach HTML templates on its own.
-        Some of you may also find it a fun way to send emails directly. To do that, you can temporarily use this extension, which lets you
-        insert HTML into Gmail, Outlook and Yahoo:
-      </p>
-      <a className="btn btn-ink" href={HTMAIL_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} /> Get the HTMail extension</a>
+    <div className="gd">
+      <header className="gd-hero">
+        <span className="gd-blob b1" /><span className="gd-blob b2" />
+        <div className="gd-hero-text">
+          <span className="gd-pill">✨ Ready to send?</span>
+          <h2>Get your email out the door</h2>
+          <p>Pick the path that fits you. It takes about a minute.</p>
+        </div>
+        <div className="gd-orbi"><Orbi size={104} float /></div>
+        <button className="gd-close" aria-label="Close" onClick={() => setDialog(null)}>×</button>
+      </header>
 
-      <ol className="steps">
-        <li><span>Copy your email’s HTML.</span> <CopyButton getText={() => documentToHtml(useStore.getState().doc)} /></li>
-        <li><span>Install the extension, then open a new message in Gmail, Outlook or Yahoo.</span></li>
-        <li><span>Use the extension’s insert-HTML option and paste what you copied.</span></li>
-      </ol>
+      <div className="gd-body">
+        <div className="gd-paths">
+          <article className="gd-card c1" style={{ ['--i' as string]: 0 }}>
+            <span className="gd-ico"><Upload size={20} /></span>
+            <h3>Use your email platform</h3>
+            <p>Download the HTML and attach it as a template in your marketing software.</p>
+            <button className="btn btn-ink" onClick={() => { const d = useStore.getState().doc; download(`${slug(d.name)}.html`, documentToHtml(d, { marker: true }), 'text/html'); notify(`Downloaded ${slug(d.name)}.html`, { kind: 'success' }); }}>
+              <Download size={15} /> Download HTML
+            </button>
+          </article>
 
-      <p>
-        Again, thank you for your interest and support. We’re always on the lookout for improvements, and if you notice something broken or
-        missing, please don’t be shy and send us feedback. We’d love to hear from you!
-      </p>
-      <Feedback />
+          <article className="gd-card c2" style={{ ['--i' as string]: 1 }}>
+            <span className="gd-ico"><Mail size={20} /></span>
+            <h3>Send from Gmail, Outlook or Yahoo</h3>
+            <p>Copy the HTML, then insert it with the HTMail extension.</p>
+            <div className="gd-btns">
+              <CopyButton getText={getHtml} />
+              <a className="btn btn-ink" href={HTMAIL_URL} target="_blank" rel="noopener noreferrer"><ExternalLink size={15} /> Get the extension</a>
+            </div>
+          </article>
+
+          <article className="gd-card c3" style={{ ['--i' as string]: 2 }}>
+            <span className="gd-ico"><FlaskConical size={20} /></span>
+            <h3>Test it first</h3>
+            <p>Email yourself a copy to see it in a real inbox.</p>
+            <button className="btn btn-accent" onClick={() => setDialog('test')}><Mail size={15} /> Send me a test</button>
+          </article>
+        </div>
+
+        <section className="gd-note">
+          <div className="gd-note-label">A note from the maker</div>
+          <p>Thank you for using this app, and I hope you find it <mark>very useful</mark>.</p>
+          <p>
+            It was originally built to work with <mark>third-party email marketing software</mark> that lets you attach HTML templates on its own.
+            Some of you may also find it a fun way to <mark>send emails directly</mark>. To do that, you can <mark>temporarily use this extension</mark>,
+            which lets you insert HTML into Gmail, Outlook and Yahoo.
+          </p>
+          <p>
+            Again, thank you for your interest and support. We’re always on the lookout for improvements, and if you notice something broken or
+            missing, <mark>please don’t be shy and send us feedback</mark>. We’d love to hear from you!
+          </p>
+        </section>
+
+        <section className="gd-feedback">
+          <div className="gd-fb-head">
+            <span className="gd-heart"><Heart size={18} /></span>
+            <div><strong>Found a bug or have an idea?</strong><span>We read every message.</span></div>
+          </div>
+          <Feedback />
+        </section>
+      </div>
     </div>
   );
 }

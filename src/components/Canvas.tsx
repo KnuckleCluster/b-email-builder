@@ -10,6 +10,7 @@ import { resolveColor } from '@/lib/theme';
 import { locate } from '@/lib/tree';
 import { startDrag } from '@/lib/dnd';
 import { selectedNode, useStore } from '@/lib/store';
+import { Orbi } from './Mascot';
 
 interface R { top: number; left: number; width: number; height: number }
 
@@ -118,8 +119,9 @@ export default function Canvas() {
       />
       {doc.sections.length === 0 && (
         <div className="empty-canvas" style={{ width: `min(100%, ${width}px)` }}>
-          <strong>Start building</strong>
-          <span>Drag a section, layout or element here, or click one on the left.</span>
+          <Orbi size={92} float />
+          <strong>It’s quiet in here…</strong>
+          <span>Drag a section, layout or element onto the canvas, or click one on the left to begin.</span>
         </div>
       )}
 

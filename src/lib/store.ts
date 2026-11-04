@@ -9,6 +9,7 @@ import { propsFor } from './render';
 import { getLastId, listDocs, loadDoc, removeDoc, saveDoc, setLastId } from './storage';
 
 export type View = 'design' | 'code' | 'preview';
+export type DialogName = 'new' | 'library' | 'export' | 'guide' | 'test' | null;
 export type Device = 'desktop' | 'mobile';
 
 interface State {
@@ -25,6 +26,7 @@ interface State {
   status: 'saved' | 'saving';
   toast: { id: number; msg: string; kind: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } } | null;
   drag: DragState | null;
+  dialog: DialogName;
 
   init: () => void;
   notify: (msg: string, opts?: { kind?: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } }) => void;
@@ -33,6 +35,7 @@ interface State {
   select: (id: string | null) => void;
   selectParent: () => void;
   setDrag: (d: DragState | null) => void;
+  setDialog: (d: DialogName) => void;
 
   patchNode: (id: string, patch: Props, key?: string, base?: boolean) => void;
   resetMobile: (id: string, keys?: string[]) => void;
@@ -143,6 +146,7 @@ export const useStore = create<State>((set, get) => {
     status: 'saved',
     toast: null,
     drag: null,
+    dialog: null,
 
     init: () => {
       if (get().ready) return;
@@ -167,6 +171,7 @@ export const useStore = create<State>((set, get) => {
       set({ selectedId: loc?.parent ? loc.parent.id : null });
     },
     setDrag: (drag) => set({ drag }),
+    setDialog: (dialog) => set({ dialog }),
 
     patchNode: (id, patch, key, base = false) => {
       const mobile = get().device === 'mobile' && !base;

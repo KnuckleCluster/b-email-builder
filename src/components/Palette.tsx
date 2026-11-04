@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { ChevronRight, Eye, EyeOff, Layers, Plus, Search } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { ChevronRight, Eye, EyeOff, Layers, Lightbulb, Plus, Search } from 'lucide-react';
 import { CATEGORY_ORDER, PALETTE, type PaletteItem } from '@/lib/nodes';
 import type { DragKind, Node } from '@/lib/types';
 import { startDrag } from '@/lib/dnd';
@@ -36,6 +36,29 @@ const HINTS: Record<string, string> = {
   Overlays: 'Shapes drawn behind a container’s content. They never take space. Drop onto any section, row or column.'
 };
 
+const TIPS = [
+  'Drag a Circle onto a section, then drag its round handle to place it anywhere, even half off the edge.',
+  'Switch to Mobile, then edit. Changes only affect phones.',
+  'Press Esc to select the parent of whatever you’ve selected.',
+  'Ctrl/⌘ + Z undoes almost anything, including deletes.',
+  'Click the empty canvas to set your subject line and brand colors.',
+  'Try the Inbox preview to see your subject and preheader like a real inbox.',
+  'Use “Create mobile-only copy” to build a totally different layout for phones.',
+  'Buttons can be any width: choose Custom % to shrink one and center it.'
+];
+
+function Tip() {
+  const [i, setI] = useState(0);
+  useEffect(() => { setI(Math.floor(Math.random() * TIPS.length)); }, []);
+  return (
+    <div className="tipcard">
+      <span className="tip-ico"><Lightbulb size={14} /></span>
+      <div><strong>Tip</strong><p>{TIPS[i]}</p></div>
+      <button className="linklike" onClick={() => setI((i + 1) % TIPS.length)}>Next</button>
+    </div>
+  );
+}
+
 function Add() {
   const [q, setQ] = useState('');
   const groups = useMemo(() => {
@@ -57,6 +80,7 @@ function Add() {
           <div className="tiles">{items.map((i) => <Tile key={i.key} item={i} />)}</div>
         </section>
       ))}
+      <Tip />
     </>
   );
 }

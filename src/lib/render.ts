@@ -538,6 +538,9 @@ export function lintDoc(doc: EmailDoc): Check[] {
     if (n.type === 'video') out.push({ level: 'info', msg: `${label}: email clients can't play video, so it exports as a linked thumbnail.` });
     if (n.type === 'lottie') out.push({ level: 'info', msg: `${label}: Lottie isn't supported in email, so the fallback image/GIF is exported.` });
   });
+  const bytes = new TextEncoder().encode(documentToHtml(doc)).length;
+  if (bytes > 102_000) out.unshift({ level: 'warn', msg: `This email is ${(bytes / 1024).toFixed(0)} KB. Gmail clips messages over about 102 KB and hides the rest behind "View entire message".` });
+  else if (bytes > 85_000) out.push({ level: 'info', msg: `This email is ${(bytes / 1024).toFixed(0)} KB, close to Gmail's ~102 KB clipping limit.` });
   if (!hasFooter) out.unshift({ level: 'warn', msg: 'No footer with an unsubscribe link. Most platforms require one.' });
   if (hasShapes) out.push({ level: 'info', msg: 'Shapes are CSS gradient backgrounds: Apple Mail, iOS and most Gmail accounts show them; Outlook desktop shows the plain background colour instead.' });
   if (deviceSpecific) out.push({ level: 'info', msg: 'Device-specific layouts rely on media queries: Outlook desktop and Gmail-app non-Google accounts show the desktop version.' });

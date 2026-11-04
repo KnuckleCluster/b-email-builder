@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileJson, Info, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
+import { Download, FileJson, Info, Mail, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
 import CopyButton from './CopyButton';
 import GuideDialog from './GuideDialog';
+import TestDialog from './TestDialog';
+import type { DialogName } from '@/lib/store';
 import { useStore } from '@/lib/store';
 import { TEMPLATES } from '@/lib/templates';
 import { documentToHtml, lintDoc } from '@/lib/render';
 import { backupJson, download, slug } from '@/lib/docs';
 
-export type DialogName = 'new' | 'library' | 'export' | 'guide' | null;
+export type { DialogName };
 
-function Modal({ open, onClose, title, wide, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; children: React.ReactNode }) {
+function Modal({ open, onClose, title, wide, fancy, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; fancy?: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -21,11 +23,11 @@ function Modal({ open, onClose, title, wide, children }: { open: boolean; onClos
   }, [open]);
   return (
     <dialog
-      ref={ref} className={wide ? 'wide' : ''} aria-label={title}
+      ref={ref} className={`${wide ? 'wide' : ''} ${fancy ? 'fancy' : ''}`} aria-label={title}
       onClose={onClose}
       onClick={(e) => { if (e.target === ref.current) onClose(); }}
     >
-      {open && (
+      {open && (fancy ? children : (
         <>
           <div className="dlg-head">
             <h2>{title}</h2>
@@ -33,7 +35,7 @@ function Modal({ open, onClose, title, wide, children }: { open: boolean; onClos
           </div>
           <div className="dlg-body">{children}</div>
         </>
-      )}
+      ))}
     </dialog>
   );
 }
@@ -123,6 +125,9 @@ function ExportDialog() {
         <button className="btn" onClick={() => { download(`${base}.srmail.json`, backupJson(doc), 'application/json'); notify(`Downloaded ${base}.srmail.json`, { kind: 'success' }); }}>
           <FileJson size={15} /> Backup (.json)
         </button>
+        <button className="btn" onClick={() => useStore.getState().setDialog('test')}>
+          <Mail size={15} /> Send a test
+        </button>
       </div>
       <div className="cklist" aria-label="Pre-flight checks">
         {checks.length === 0 && <div className="check info"><Info size={14} /><span>Pre-flight checks passed.</span></div>}
@@ -138,12 +143,15 @@ function ExportDialog() {
 }
 
 export default function Dialogs({ open, onClose }: { open: DialogName; onClose: () => void }) {
+  // A dialog that closes because another one opened must not reset the shared state.
+  const closeIf = (name: DialogName) => () => { if (useStore.getState().dialog === name) onClose(); };
   return (
     <>
-      <Modal open={open === 'new'} onClose={onClose} title="New email"><NewDialog onClose={onClose} /></Modal>
-      <Modal open={open === 'library'} onClose={onClose} title="My emails"><LibraryDialog onClose={onClose} /></Modal>
-      <Modal open={open === 'export'} onClose={onClose} title="Export" wide><ExportDialog /></Modal>
-      <Modal open={open === 'guide'} onClose={onClose} title="How to send your email" wide><GuideDialog /></Modal>
+      <Modal open={open === 'new'} onClose={closeIf('new')} title="New email"><NewDialog onClose={onClose} /></Modal>
+      <Modal open={open === 'library'} onClose={closeIf('library')} title="My emails"><LibraryDialog onClose={onClose} /></Modal>
+      <Modal open={open === 'export'} onClose={closeIf('export')} title="Export" wide><ExportDialog /></Modal>
+      <Modal open={open === 'guide'} onClose={closeIf('guide')} title="How to send your email" wide fancy><GuideDialog /></Modal>
+      <Modal open={open === 'test'} onClose={closeIf('test')} title="Send a test email"><TestDialog /></Modal>
     </>
   );
 }

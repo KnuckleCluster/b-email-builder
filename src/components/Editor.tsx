@@ -8,7 +8,7 @@ import Palette from './Palette';
 import Canvas from './Canvas';
 import Inspector from './Inspector';
 import { CodeView, PreviewView } from './Views';
-import Dialogs, { type DialogName } from './Dialogs';
+import Dialogs from './Dialogs';
 
 function DragLayer() {
   const drag = useStore((s) => s.drag);
@@ -47,7 +47,8 @@ export default function Editor() {
   const ready = useStore((s) => s.ready);
   const view = useStore((s) => s.view);
   const device = useStore((s) => s.device);
-  const [dialog, setDialog] = useState<DialogName>(null);
+  const dialog = useStore((s) => s.dialog);
+  const setDialog = useStore((s) => s.setDialog);
 
   useEffect(() => { useStore.getState().init(); }, []);
 
