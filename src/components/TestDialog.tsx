@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Clock, LoaderCircle, Mail, TriangleAlert } from 'lucide-react';
 import { documentToHtml } from '@/lib/render';
 import { useStore } from '@/lib/store';
@@ -17,6 +17,7 @@ const MESSAGES: Record<string, { title: string; text: string; soft?: boolean }> 
   rate_limited: { title: 'Easy there, speedy', text: 'You’ve sent a few tests already. Take a short break and try again in about an hour.' },
   recipient_limit: { title: 'That inbox has had plenty today', text: 'That address already received several tests today. Try another address, or come back tomorrow.' },
   bad_email: { title: 'Check that email address', text: 'That doesn’t look like a valid address. Mind taking another look?' },
+  too_fast: { title: 'That was quick!', text: 'Please press Send once more.' },
   bad_html: { title: 'This email is too large to test', text: 'Try removing a few blocks, then send again.' },
   send_failed: { title: 'That didn’t go through', text: 'Something went wrong while sending. Please try again.' },
   network: { title: 'Couldn’t reach the server', text: 'Check your connection and try again.', soft: true }
@@ -25,7 +26,7 @@ const MESSAGES: Record<string, { title: string; text: string; soft?: boolean }> 
 export default function TestDialog() {
   const doc = useStore((s) => s.doc);
   const [to, setTo] = useState('');
-  const [website, setWebsite] = useState('');
+  const openedAt = useRef(Date.now());
   const [status, setStatus] = useState<Status>('idle');
   const [err, setErr] = useState<string>('');
 
@@ -42,7 +43,7 @@ export default function TestDialog() {
     try {
       const res = await fetch('/api/send-test', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: to.trim(), subject, website, html: documentToHtml(useStore.getState().doc) })
+        body: JSON.stringify({ to: to.trim(), subject, elapsed: Date.now() - openedAt.current, html: documentToHtml(useStore.getState().doc) })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'send_failed');
@@ -84,7 +85,6 @@ export default function TestDialog() {
       <label className="flabel" htmlFor="td-to">Send it to</label>
       <input id="td-to" className="input" type="email" autoComplete="email" placeholder="you@example.com" value={to} autoFocus
         onChange={(e) => { setTo(e.target.value); if (status === 'error') { setStatus('idle'); setErr(''); } }} />
-      <input className="hp" tabIndex={-1} aria-hidden="true" autoComplete="off" name="website" value={website} onChange={(e) => setWebsite(e.target.value)} />
 
       {m && (
         <div className={`td-msg ${m.soft ? 'soft' : ''}`} role="alert">

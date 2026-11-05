@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server';
+import { classifyMailError, diagnose, feedbackTo, hardCap, makeTransporter, mask, missingVars, noteSent, usedToday } from '@/lib/mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
 /**
- * Receives feedback from the app and forwards it to ONE provider, chosen by env vars
- * (checked in this order): FEEDBACK_WEBHOOK_URL (e.g. n8n), RESEND_API_KEY + FEEDBACK_TO, WEB3FORMS_KEY.
- * Keys stay on the server. See .env.example.
+ * Feedback from the app is emailed to you through Brevo (see src/lib/mail.ts for the env vars).
+ * It runs entirely on Vercel + Brevo: nothing depends on your own computer being on.
+ * Troubleshooting: GET /api/feedback  (add DIAGNOSTICS=1 to see where it goes; ?check=1 tests the login).
  */
 
 const TYPES = ['Bug', 'Idea', 'Other'];
 const hits = new Map<string, number[]>();
 
-/** Tiny per-instance rate limit: 5 messages / hour / IP. (On serverless this is best-effort.) */
+/** Tiny per-instance rate limit: 5 messages / hour / IP. (Best-effort on serverless.) */
 function limited(ip: string) {
   const now = Date.now();
   const recent = (hits.get(ip) || []).filter((t) => now - t < 3_600_000);
@@ -29,7 +31,8 @@ export async function POST(req: Request) {
   let body: any;
   try { body = await req.json(); } catch { return json({ error: 'bad_request' }, 400); }
 
-  if (body?.website) return json({ ok: true }); // honeypot: bots fill hidden fields
+  // Bot trap: our form reports how long it was open. Instant or missing = not a person (and never a fake success).
+  if (typeof body?.elapsed !== 'number' || body.elapsed < 400) return json({ error: 'too_fast' }, 400);
 
   const type = TYPES.includes(body?.type) ? body.type : 'Other';
   const message = clean(body?.message, 2000);
@@ -37,54 +40,48 @@ export async function POST(req: Request) {
   if (message.length < 5) return json({ error: 'message_too_short' }, 400);
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: 'bad_email' }, 400);
 
+  if (missingVars().length) return json({ error: 'not_configured' }, 503);
+
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
   if (limited(ip)) return json({ error: 'rate_limited' }, 429);
+  if (usedToday() >= hardCap()) return json({ error: 'busy' }, 503);
 
   const ua = req.headers.get('user-agent') ?? '';
   const version = clean(body?.app?.version, 20);
-  const design = body?.design ? clean(body.design, 30_000) : '';
+  const design = body?.design ? String(body.design).slice(0, 200_000) : '';
   const subject = `[Email Maker] ${type}: ${message.replace(/\s+/g, ' ').slice(0, 60)}`;
   const text = [
     `Type: ${type}`,
     `From: ${email || '(no email given)'}`,
     `App version: ${version || 'unknown'}`,
     `Browser: ${ua}`,
+    design ? 'Design: attached (design.json). Import it via the app to see exactly what they had.' : '',
     '',
-    message,
-    design ? `\n--- email design (opt-in, truncated to 30k chars) ---\n${design}` : ''
-  ].join('\n');
+    message
+  ].filter((l, i) => l !== '' || i > 3).join('\n');
 
-  const env = process.env;
   try {
-    if (env.FEEDBACK_WEBHOOK_URL) {
-      const r = await fetch(env.FEEDBACK_WEBHOOK_URL, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject, type, message, email, version, userAgent: ua, design, text })
-      });
-      if (!r.ok) throw new Error(`webhook ${r.status}`);
-    } else if (env.RESEND_API_KEY && env.FEEDBACK_TO) {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          from: env.FEEDBACK_FROM || 'Email Maker <onboarding@resend.dev>',
-          to: [env.FEEDBACK_TO], subject, text, ...(email ? { reply_to: email } : {})
-        })
-      });
-      if (!r.ok) throw new Error(`resend ${r.status}`);
-    } else if (env.WEB3FORMS_KEY) {
-      const r = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ access_key: env.WEB3FORMS_KEY, subject, from_name: 'Email Maker feedback', ...(email ? { email } : {}), message: text })
-      });
-      const j: any = await r.json().catch(() => ({}));
-      if (!r.ok || j.success === false) throw new Error(`web3forms ${r.status}`);
-    } else {
-      return json({ error: 'not_configured' }, 503);
-    }
-  } catch (e) {
-    console.error('feedback failed:', e);
-    return json({ error: 'send_failed' }, 502);
+    await makeTransporter().sendMail({
+      from: process.env.MAIL_FROM,
+      to: feedbackTo(),
+      ...(email ? { replyTo: email } : {}),
+      subject,
+      text,
+      ...(design ? { attachments: [{ filename: 'design.json', content: JSON.stringify({ srmail: 2, doc: safeParse(design) }, null, 2), contentType: 'application/json' }] } : {})
+    });
+  } catch (e: any) {
+    console.error('[feedback] failed:', e?.code, e?.responseCode, e?.message);
+    const code = classifyMailError(e);
+    return json({ error: code }, code === 'send_failed' ? 502 : 503);
   }
+
+  noteSent();
+  console.log(`[feedback] delivered to ${mask(feedbackTo())} (today: ${usedToday()})`);
   return json({ ok: true });
+}
+
+function safeParse(s: string) { try { return JSON.parse(s); } catch { return null; } }
+
+export async function GET(req: Request) {
+  return json(await diagnose(req));
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Check, Download, ExternalLink, FlaskConical, Heart, LoaderCircle, Mail, MessageSquare, Upload } from 'lucide-react';
 import { APP_VERSION, HTMAIL_URL } from '@/lib/links';
 import { documentToHtml } from '@/lib/render';
@@ -14,6 +14,9 @@ const TYPES = ['Idea', 'Bug', 'Other'] as const;
 const ERRORS: Record<string, string> = {
   not_configured: 'Feedback isn’t set up on this site yet. Please check back soon.',
   rate_limited: 'Too many messages in a short time. Please try again later.',
+  too_fast: 'That was quick! Please press Send once more.',
+  busy: 'Feedback is very busy right now and temporarily unavailable. Your message is still here, so please try again a little later.',
+  unavailable: 'The feedback service is currently unavailable. Your message is still here, so please try again in a few minutes.',
   message_too_short: 'Please write a little more so we can understand.',
   bad_email: 'That email address doesn’t look right.',
   send_failed: 'We couldn’t deliver your message. Please try again in a moment.'
@@ -25,7 +28,7 @@ function Feedback() {
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
   const [includeDesign, setIncludeDesign] = useState(false);
-  const [website, setWebsite] = useState(''); // honeypot
+  const openedAt = useRef(Date.now());
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
 
@@ -41,7 +44,7 @@ function Feedback() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type, message, email, website, app: { version: APP_VERSION },
+          type, message, email, elapsed: Date.now() - openedAt.current, app: { version: APP_VERSION },
           ...(includeDesign ? { design: JSON.stringify(useStore.getState().doc) } : {})
         })
       });
@@ -86,7 +89,6 @@ function Feedback() {
         <input type="checkbox" role="switch" checked={includeDesign} onChange={(e) => setIncludeDesign(e.target.checked)} />
         <span className="track" aria-hidden="true" /> Include my current email design (helps us reproduce bugs)
       </label>
-      <input className="hp" tabIndex={-1} aria-hidden="true" autoComplete="off" name="website" value={website} onChange={(e) => setWebsite(e.target.value)} />
       {error && <p className="fb-error" role="alert">{error}</p>}
       <div className="fb-actions">
         <button type="submit" className="btn btn-accent" disabled={status === 'sending'}>

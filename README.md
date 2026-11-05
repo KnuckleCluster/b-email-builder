@@ -1,4 +1,4 @@
-# Branded Email Maker (v0.5)
+# Branded Email Maker (v0.6)
 
 Drag-and-drop builder for branded HTML emails. Next.js (App Router) + TypeScript + Zustand.
 
@@ -24,33 +24,35 @@ Support: Apple Mail, iOS and most Gmail accounts. Outlook desktop shows the plai
 ## Buttons and sizing
 Every element has Spacing (per side), and most have Width + Position. Buttons: *Fit to text*, *Custom %* (centered or aligned) or *Full width*.
 
-## Send test email (v0.5)
-**Preview > Send test** (also in Export and the How to send window) emails the current design to an address the user types, via Brevo SMTP
-(`src/app/api/send-test/route.ts`, using `nodemailer`). Credentials are environment variables only: `BREVO_SMTP_USER`, `BREVO_SMTP_KEY`, `MAIL_FROM`
-(see `.env.example`). Never commit them. Add them in Vercel > Settings > Environment Variables and redeploy.
+## Email: feedback + send-test (Brevo only)
+Both features send through **Brevo SMTP** from Vercel API routes (`src/app/api/feedback`, `src/app/api/send-test`, shared helpers in `src/lib/mail.ts`).
+Nothing depends on n8n or any personal machine being on.
 
-- Brevo free tier is 300 emails/day. The route stops at `TEST_EMAIL_DAILY_CAP` (default 250) and the UI shows a friendly "busy / unavailable" message instead of an error.
-- Because it accepts any recipient, it is limited to 5 tests/hour per visitor, 3 per recipient per day, adds a "this is a test" banner, and has a honeypot field.
-  These limits live in server memory, so on serverless they are best-effort. If the app gets public traffic, add Upstash Redis (free) or Cloudflare Turnstile.
-- `MAIL_FROM` must be a sender you verified in Brevo (Senders, Domains & Dedicated IPs).
+Set these in `.env.local` and in Vercel > Settings > Environment Variables (redeploy afterwards). Never commit them.
+
+| Variable | What it is |
+| --- | --- |
+| `BREVO_SMTP_USER` | SMTP login from Brevo > SMTP & API > SMTP (looks like `xxxx@smtp-brevo.com`, not your account email) |
+| `BREVO_SMTP_KEY` | An SMTP key from the same page |
+| `MAIL_FROM` | A sender verified in Brevo, e.g. `Email Maker <you@yourdomain.com>` |
+| `FEEDBACK_TO` | Optional. Where feedback arrives. Defaults to the address in `MAIL_FROM` |
+
+- **Feedback** arrives as an email to `FEEDBACK_TO` with the sender's address as Reply-To, and (if they opt in) their design attached as `design.json` that you can import into the app.
+- **Send test** (Preview > Send test) emails the current design to any address typed in, with a "this is a test" banner.
+- Brevo's free tier is 300/day. Tests stop at `TEST_EMAIL_DAILY_CAP` (250) and feedback keeps working until `EMAIL_DAILY_HARD_CAP` (290), so feedback is never crowded out by tests.
+  When a limit or Brevo is unavailable, users see a friendly message and their text stays in the form.
+- Abuse protection: timing bot-trap, 5 emails/hour per visitor, 3 tests per recipient per day. These counters live in server memory, so on serverless they are best-effort.
+  If the app gets real public traffic, add Upstash Redis (free) or Cloudflare Turnstile.
+
+### Troubleshooting email
+- Open `/api/feedback` or `/api/send-test` on your site: it lists any missing variables.
+- To test the Brevo login without sending anything: add `DIAGNOSTICS=1` in Vercel, redeploy, open `/api/send-test?check=1` (it also shows where feedback goes, masked), then remove `DIAGNOSTICS`.
+- Vercel > your project > Logs: search `failed` for the exact SMTP error, or `delivered` for successful sends.
+- Environment variable changes only apply after a new deployment.
 
 ## Inbox preview (v0.5)
 **Preview > Inbox** shows the subject and preheader as a desktop inbox row and a phone notification, with length hints.
 The pre-flight checks also warn when the HTML nears Gmail's ~102 KB clipping limit.
-
-## Feedback (v0.4)
-The **How to send** window explains how to use the exported HTML and has a feedback form. The form posts to `src/app/api/feedback/route.ts`,
-which forwards it to ONE provider chosen by environment variables. Copy `.env.example` to `.env.local` (and add the same variables in
-Vercel > Settings > Environment Variables), then restart.
-
-| Option | Free tier | Setup |
-| --- | --- | --- |
-| n8n webhook (`FEEDBACK_WEBHOOK_URL`) | free | Webhook trigger + Gmail/SMTP node. Fields arrive under `body`: `subject`, `text`, `email`, `message`, `type`. Needs an always-on n8n URL (not a laptop tunnel). |
-| Resend (`RESEND_API_KEY`, `FEEDBACK_TO`) | 3,000/month, max 100/day | Without a verified domain it can only email the address you signed up with, which is fine for receiving feedback. |
-| Web3Forms (`WEB3FORMS_KEY`) | 250/month | Get a key by email, paste it in. No account needed. |
-
-Spam protection: hidden honeypot field, 5 messages/hour/IP (per server instance), length limits. Keys never reach the browser.
-Edit the extension link and app version in `src/lib/links.ts`.
 
 ## Desktop and mobile layouts (v0.2)
 - Every block has **Show on desktop / Show on mobile**. Hidden blocks stay in the design and appear as striped stubs in the editor.
@@ -78,7 +80,8 @@ src/lib/nodes.ts       node factories, section presets, row layouts, palette
 src/lib/dnd.ts         drop-target hit-testing + pointer drag controller
 src/lib/theme.ts       fonts, brand defaults, color tokens
 src/lib/links.ts       extension URL + app version
-src/app/api/feedback/  feedback endpoint (server side)
+src/lib/mail.ts        Brevo SMTP helpers shared by both email routes
+src/app/api/           feedback + send-test endpoints (server side)
 src/lib/registry.ts    block definitions: defaults + inspector fields + palette
 src/lib/render.ts      block renderers, document export, marker encode/decode, lint checks
 src/lib/templates.ts   starter templates
