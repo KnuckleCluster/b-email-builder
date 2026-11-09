@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Check, Code2, Eye, Info, Monitor, PenLine, Smartphone, TriangleAlert } from 'lucide-react';
 import { useStore, type View } from '@/lib/store';
+import { locate } from '@/lib/tree';
 import TopBar from './TopBar';
 import Palette from './Palette';
 import Canvas from './Canvas';
@@ -52,9 +53,25 @@ export default function Editor() {
 
   useEffect(() => { useStore.getState().init(); }, []);
 
+  // deep links from the home page: /editor?new=<template>, ?open=<id>, ?templates=1, ?guide=1
+  const handled = useRef(false);
+  useEffect(() => {
+    if (!ready || handled.current) return;
+    handled.current = true;
+    const q = new URLSearchParams(window.location.search);
+    const s = useStore.getState();
+    const tpl = q.get('new'), open = q.get('open');
+    if (tpl) s.newDoc(tpl);
+    else if (open) s.openDoc(open);
+    if (q.get('templates') === '1') s.setDialog('new');
+    if (q.get('guide') === '1') s.setDialog('guide');
+    if (q.toString()) window.history.replaceState(null, '', window.location.pathname);
+  }, [ready]);
+
   /* keyboard shortcuts */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return; // already handled (e.g. by the inline text editor)
       const el = e.target as HTMLElement;
       const typing = el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable);
       const mod = e.ctrlKey || e.metaKey;
@@ -64,6 +81,9 @@ export default function Editor() {
       else if (typing) return;
       else if (mod && e.key.toLowerCase() === 'd' && s.selectedId) { e.preventDefault(); s.duplicateNode(s.selectedId); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && s.selectedId) { e.preventDefault(); s.removeNode(s.selectedId); }
+      else if (e.key === 'Enter' && s.selectedId && s.view === 'design') {
+        if (locate(s.doc.sections, s.selectedId)?.node.kind === 'el') { e.preventDefault(); window.dispatchEvent(new CustomEvent('srm:edit', { detail: s.selectedId })); }
+      }
       else if (e.key === 'Escape') s.selectParent();
     };
     window.addEventListener('keydown', onKey);

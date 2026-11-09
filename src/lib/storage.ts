@@ -32,3 +32,9 @@ export function removeDoc(id: string) {
   try { localStorage.removeItem(key(id)); } catch { /* ignore */ }
   write(IDX, read<DocMeta[]>(IDX, []).filter((d) => d.id !== id));
 }
+
+/* ---------- saved sections ("My sections") ---------- */
+import type { SavedSection } from './types';
+const SAVED = 'srmail:sections';
+export const listSaved = (): SavedSection[] => read<SavedSection[]>(SAVED, []);
+export const writeSaved = (list: SavedSection[]) => write(SAVED, list);

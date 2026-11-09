@@ -37,16 +37,20 @@ function ytThumb(url: string): string {
   return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : '';
 }
 
+/** Canvas-only: tag text regions so the editor can edit them in place. Never emitted into exported HTML. */
+let EDIT = false;
+const ed = (key: string, multiline = true) => (EDIT ? ` data-edit="${key}"${multiline ? ' data-ml="1"' : ''}` : '');
+
 function button(o: {
   label: string; url: string; bg: string; color: string; radius: number;
-  font: string; size?: string; full?: boolean; align?: string;
+  font: string; size?: string; full?: boolean; align?: string; edit?: boolean;
 }): string {
   const size = o.size || 'md';
   const py = size === 'lg' ? 18 : size === 'sm' ? 10 : 14;
   const px = size === 'lg' ? 36 : size === 'sm' ? 20 : 28;
   const fs = size === 'lg' ? 17 : size === 'sm' ? 14 : 16;
   const align = o.align || 'left';
-  const a = `<a href="${esc(o.url || '#')}" target="_blank" style="display:${o.full ? 'block' : 'inline-block'};padding:${py}px ${px}px;font:600 ${fs}px/1 ${o.font};color:${o.color};text-decoration:none;text-align:center;border-radius:${o.radius}px;background:${o.bg}">${esc(o.label)}</a>`;
+  const a = `<a${o.edit ? ed('text', false) : ''} href="${esc(o.url || '#')}" target="_blank" style="display:${o.full ? 'block' : 'inline-block'};padding:${py}px ${px}px;font:600 ${fs}px/1 ${o.font};color:${o.color};text-decoration:none;text-align:center;border-radius:${o.radius}px;background:${o.bg}">${esc(o.label)}</a>`;
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" ${o.full ? 'width="100%" ' : `align="${align}" `}style="${o.full ? 'width:100%;' : ''}${align === 'center' && !o.full ? 'margin:0 auto;' : ''}border-collapse:separate"><tr><td bgcolor="${o.bg}" align="center" style="border-radius:${o.radius}px;background:${o.bg}">${a}</td></tr></table>`;
 }
 
@@ -96,11 +100,11 @@ const RENDER: Record<string, R> = {
   heading: (p, b) => {
     const lvl = [1, 2, 3].includes(+p.level) ? +p.level : 2;
     const size = { 1: 34, 2: 26, 3: 20 }[lvl as 1 | 2 | 3];
-    return `<h${lvl} class="srm-h${lvl}" style="margin:0;font:${num(p.weight, 700)} ${size}px/1.2 ${ff(p, b, 'heading')};letter-spacing:${num(p.letterSpacing, 0)}px;color:${rc(p.color || '@text', b)};text-align:${p.align || 'left'}">${inline(p.text, rc(p.color || '@text', b))}</h${lvl}>`;
+    return `<h${lvl} class="srm-h${lvl}"${ed('text', false)} style="margin:0;font:${num(p.weight, 700)} ${size}px/1.2 ${ff(p, b, 'heading')};letter-spacing:${num(p.letterSpacing, 0)}px;color:${rc(p.color || '@text', b)};text-align:${p.align || 'left'}">${inline(p.text, rc(p.color || '@text', b))}</h${lvl}>`;
   },
 
   text: (p, b) =>
-    `<div style="font:${num(p.weight, 400)} ${num(p.size, 16)}px/${num(p.lineHeight, 1.6)} ${ff(p, b)};letter-spacing:${num(p.letterSpacing, 0)}px;color:${rc(p.color || '@text', b)};text-align:${p.align || 'left'}">${inline(p.text, rc('@primary', b))}</div>`,
+    `<div${ed('text')} style="font:${num(p.weight, 400)} ${num(p.size, 16)}px/${num(p.lineHeight, 1.6)} ${ff(p, b)};letter-spacing:${num(p.letterSpacing, 0)}px;color:${rc(p.color || '@text', b)};text-align:${p.align || 'left'}">${inline(p.text, rc('@primary', b))}</div>`,
 
   image: (p, b, inner) => {
     const w = num(p.width, 100);
@@ -127,7 +131,7 @@ const RENDER: Record<string, R> = {
   button: (p, b) => {
     const mode = p.widthMode || (p.fullWidth ? 'full' : 'auto');
     const al = p.align || 'center';
-    const base = { label: p.text, url: p.url, bg: rc(p.bg || '@primary', b), color: rc(p.color || '#FFFFFF', b), radius: num(p.radius, b.radius), font: fontStack(b), size: p.size, align: al };
+    const base = { label: p.text, url: p.url, bg: rc(p.bg || '@primary', b), color: rc(p.color || '#FFFFFF', b), radius: num(p.radius, b.radius), font: fontStack(b), size: p.size, align: al, edit: true };
     if (mode === 'full') return button({ ...base, full: true });
     if (mode === 'custom') {
       const w = Math.min(100, Math.max(20, num(p.blockWidth, 60)));
@@ -152,10 +156,10 @@ const RENDER: Record<string, R> = {
     const size = num(p.size, 18);
     if (shape === 'circle') {
       const d = num(p.diameter, 160);
-      return `<table role="presentation" align="${al}" cellpadding="0" cellspacing="0" border="0" style="${al === 'center' ? 'margin:0 auto;' : ''}"><tr><td width="${d}" height="${d}" align="center" valign="middle" bgcolor="${bg}" style="width:${d}px;height:${d}px;background:${bg};border-radius:50%;${border}font:700 ${size}px/1.25 ${fontStack(b, 'heading')};color:${color};text-align:center;padding:12px;box-sizing:border-box">${inline(p.text, color)}</td></tr></table>`;
+      return `<table role="presentation" align="${al}" cellpadding="0" cellspacing="0" border="0" style="${al === 'center' ? 'margin:0 auto;' : ''}"><tr><td width="${d}" height="${d}" align="center" valign="middle" bgcolor="${bg}"${ed('text')} style="width:${d}px;height:${d}px;background:${bg};border-radius:50%;${border}font:700 ${size}px/1.25 ${fontStack(b, 'heading')};color:${color};text-align:center;padding:12px;box-sizing:border-box">${inline(p.text, color)}</td></tr></table>`;
     }
     const full = p.fullWidth !== false;
-    return `<table role="presentation" ${full ? 'width="100%"' : `align="${al}"`} cellpadding="0" cellspacing="0" border="0" style="${full ? 'width:100%;' : al === 'center' ? 'margin:0 auto;' : ''}border-collapse:separate"><tr><td align="${al}" bgcolor="${bg}" style="background:${bg};border-radius:${radius}px;${border}padding:${num(p.padding, 22)}px 28px;font:600 ${size}px/1.4 ${fontStack(b)};color:${color};text-align:${al}">${inline(p.text, color)}</td></tr></table>`;
+    return `<table role="presentation" ${full ? 'width="100%"' : `align="${al}"`} cellpadding="0" cellspacing="0" border="0" style="${full ? 'width:100%;' : al === 'center' ? 'margin:0 auto;' : ''}border-collapse:separate"><tr><td align="${al}" bgcolor="${bg}"${ed('text')} style="background:${bg};border-radius:${radius}px;${border}padding:${num(p.padding, 22)}px 28px;font:600 ${size}px/1.4 ${fontStack(b)};color:${color};text-align:${al}">${inline(p.text, color)}</td></tr></table>`;
   },
 
   split: (p, b, inner) => {
@@ -181,11 +185,11 @@ const RENDER: Record<string, R> = {
   faq: (p, b) => {
     const f = fontStack(b), hf = fontStack(b, 'heading');
     const line = rc('#DCE1EA', b);
-    const head = p.heading ? `<div style="font:700 24px/1.25 ${hf};color:${rc('@text', b)};margin:0 0 8px">${esc(p.heading)}</div>` : '';
+    const head = p.heading ? `<div${ed('heading', false)} style="font:700 24px/1.25 ${hf};color:${rc('@text', b)};margin:0 0 8px">${esc(p.heading)}</div>` : '';
     const rows = (p.items || [])
       .map(
         (it: Props, i: number) =>
-          `<tr><td style="padding:16px 0;${i === 0 && !p.heading ? '' : `border-top:1px solid ${line};`}"><div style="font:700 16px/1.4 ${f};color:${rc('@text', b)};margin:0 0 6px">${esc(it.q)}</div><div style="font:400 15px/1.6 ${f};color:${rc('@muted', b)}">${inline(it.a, rc('@primary', b))}</div></td></tr>`
+          `<tr><td style="padding:16px 0;${i === 0 && !p.heading ? '' : `border-top:1px solid ${line};`}"><div${ed(`items.${i}.q`, false)} style="font:700 16px/1.4 ${f};color:${rc('@text', b)};margin:0 0 6px">${esc(it.q)}</div><div${ed(`items.${i}.a`)} style="font:400 15px/1.6 ${f};color:${rc('@muted', b)}">${inline(it.a, rc('@primary', b))}</div></td></tr>`
       )
       .join('');
     return `${head}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>`;
@@ -202,8 +206,8 @@ const RENDER: Record<string, R> = {
         const stripe = p.striped && !isHead && r % 2 === 0 ? 'background:#F6F8FB;' : '';
         const tds = row
           .map(
-            (c) =>
-              `<${isHead ? 'th' : 'td'} align="${isHead ? 'left' : p.align || 'left'}" style="border:1px solid ${border};padding:10px 12px;font:${isHead ? 700 : 400} 14px/1.45 ${f};color:${isHead ? '#FFFFFF' : rc('@text', b)};${isHead ? `background:${hbg};` : stripe}">${inline(c, isHead ? '#FFFFFF' : rc('@primary', b))}</${isHead ? 'th' : 'td'}>`
+            (c, ci) =>
+              `<${isHead ? 'th' : 'td'} align="${isHead ? 'left' : p.align || 'left'}"${ed(`cells.${r}.${ci}`, false)} style="border:1px solid ${border};padding:10px 12px;font:${isHead ? 700 : 400} 14px/1.45 ${f};color:${isHead ? '#FFFFFF' : rc('@text', b)};${isHead ? `background:${hbg};` : stripe}">${inline(c, isHead ? '#FFFFFF' : rc('@primary', b))}</${isHead ? 'th' : 'td'}>`
           )
           .join('');
         return `<tr>${tds}</tr>`;
@@ -214,7 +218,7 @@ const RENDER: Record<string, R> = {
 
   quote: (p, b) => {
     const accent = rc(p.accent || '@primary', b);
-    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-left:4px solid ${accent};padding:4px 0 4px 18px"><div style="font:italic 400 ${num(p.size, 20)}px/1.5 ${fontStack(b, 'heading')};color:${rc('@text', b)}">${inline(p.text, accent)}</div>${
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-left:4px solid ${accent};padding:4px 0 4px 18px"><div${ed('text')} style="font:italic 400 ${num(p.size, 20)}px/1.5 ${fontStack(b, 'heading')};color:${rc('@text', b)}">${inline(p.text, accent)}</div>${
       p.author ? `<div style="font:600 14px/1.4 ${fontStack(b)};color:${rc('@text', b)};margin:12px 0 0">${esc(p.author)}${p.role ? `<span style="font-weight:400;color:${rc('@muted', b)}"> · ${esc(p.role)}</span>` : ''}</div>` : ''
     }</td></tr></table>`;
   },
@@ -432,7 +436,12 @@ function sectionExport(sec: Node, brand: Brand): string {
 /** What the editor canvas shows for the current device. */
 export function canvasHtml(doc: EmailDoc, device: Device): string {
   const c: Ctx = { brand: doc.brand, device, mode: 'canvas' };
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse"><tbody>${doc.sections.map((s) => renderSection(s, c)).join('')}</tbody></table>`;
+  EDIT = true;
+  try {
+    return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:collapse"><tbody>${doc.sections.map((s) => renderSection(s, c)).join('')}</tbody></table>`;
+  } finally {
+    EDIT = false;
+  }
 }
 
 /* ---------- automatic mobile behaviour: one source for export + editor ---------- */
@@ -473,6 +482,14 @@ export function decodeMarker(html: string): unknown | null {
   }
 }
 
+export const BADGE_TEXT = 'Made with Branded Email Maker';
+export const siteUrl = () => process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+
+function badgeHtml(doc: EmailDoc): string {
+  if (doc.badge === false) return '';
+  return `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto"><tr><td align="center" style="padding:16px 0 4px"><a href="${esc(siteUrl() || '#')}" target="_blank" style="display:inline-block;padding:7px 14px;border-radius:999px;background-color:#7C3AED;background-image:linear-gradient(135deg,#6D28D9,#DB2777);color:#FFFFFF;font:700 11px/1 Arial,Helvetica,sans-serif;letter-spacing:.02em;text-decoration:none">&#10022;&nbsp; ${BADGE_TEXT}</a></td></tr></table>`;
+}
+
 export function documentToHtml(doc: EmailDoc, opts: { marker?: boolean } = {}): string {
   const b = doc.brand;
   const page = rc('@page', b), surface = rc('@surface', b);
@@ -506,7 +523,7 @@ ${marker}${pre}<table role="presentation" width="100%" cellpadding="0" cellspaci
 ${rows}
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
-</td></tr></table>
+${badgeHtml(doc)}</td></tr></table>
 </body>
 </html>`;
 }

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { Download, FilePlus2, FolderOpen, Redo2, Sparkles, Undo2, Upload } from 'lucide-react';
 import { useStore } from '@/lib/store';
@@ -27,13 +28,13 @@ export default function TopBar({ openDialog }: { openDialog: (d: DialogName) => 
 
   return (
     <header className="topbar">
-      <div className="brand">
+      <Link href="/" className="brand" title="Back to the home page">
         <svg className="logo-mark" width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden="true">
           <circle cx="16" cy="16" r="9" fill="#0F1A2E" />
           <ellipse cx="16" cy="16" rx="14" ry="5.5" transform="rotate(-24 16 16)" stroke="#2E5BFF" strokeWidth="2.2" />
         </svg>
         Branded Email Maker
-      </div>
+      </Link>
       <div className="docname">
         <input value={name} aria-label="Email name" onChange={(e) => useStore.getState().patchMeta({ name: e.target.value })} />
         <span className={`status ${status}`} role="status"><i />{status === 'saving' ? 'Saving…' : 'Saved in browser'}</span>

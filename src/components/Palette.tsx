@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronRight, Eye, EyeOff, Layers, Lightbulb, Plus, Search } from 'lucide-react';
+import { Bookmark, ChevronRight, Eye, EyeOff, Image as ImageIcon, Layers, Lightbulb, Plus, Search, X } from 'lucide-react';
 import { CATEGORY_ORDER, PALETTE, type PaletteItem } from '@/lib/nodes';
-import type { DragKind, Node } from '@/lib/types';
+import type { DragKind, Node, SavedSection } from '@/lib/types';
+import { cloneFresh } from '@/lib/tree';
+import PhotoBrowser from './PhotoBrowser';
 import { startDrag } from '@/lib/dnd';
 import { useStore } from '@/lib/store';
 import { nodeLabel } from './Canvas';
@@ -59,6 +61,40 @@ function Tip() {
   );
 }
 
+function SavedTile({ s }: { s: SavedSection }) {
+  const action = { kind: 'section' as const, build: () => cloneFresh(s.node) };
+  const rows = (s.node.children || []).length;
+  return (
+    <div
+      className="saved" title="Drag onto the canvas, or click to add"
+      onPointerDown={(e) => {
+        if (e.button !== 0 || (e.target as HTMLElement).closest('.saved-x')) return;
+        e.preventDefault();
+        startDrag(e, { kind: 'section', commit: (t) => useStore.getState().addFromAction(action, t) }, s.name, () => useStore.getState().addFromAction(action));
+      }}
+    >
+      <span className="saved-ico"><Bookmark size={14} /></span>
+      <span className="saved-name">{s.name}<small>{rows} row{rows === 1 ? '' : 's'}</small></span>
+      <button className="saved-x icon-btn sm" aria-label={`Remove ${s.name}`} title="Remove" onClick={() => useStore.getState().deleteSaved(s.id)}><X size={13} /></button>
+    </div>
+  );
+}
+
+function MySections() {
+  const saved = useStore((s) => s.saved);
+  return (
+    <section>
+      <h3 className="cat">My sections</h3>
+      <p className="cat-hint">Sections you saved, ready to reuse in any email.</p>
+      {saved.length === 0 ? (
+        <p className="empty-note">Select a section, then click the bookmark icon to save it here.</p>
+      ) : (
+        <div className="saved-list">{saved.map((s) => <SavedTile key={s.id} s={s} />)}</div>
+      )}
+    </section>
+  );
+}
+
 function Add() {
   const [q, setQ] = useState('');
   const groups = useMemo(() => {
@@ -72,6 +108,7 @@ function Add() {
         <Search size={15} />
         <input type="search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search" />
       </div>
+      {!q.trim() && <MySections />}
       {groups.length === 0 && <p className="empty-note">Nothing matches “{q}”.</p>}
       {groups.map(([cat, items]) => (
         <section key={cat}>
@@ -120,14 +157,19 @@ function LayersTab() {
 }
 
 export default function Palette() {
-  const [tab, setTab] = useState<'add' | 'layers'>('add');
+  const [tab, setTab] = useState<'add' | 'photos' | 'layers'>('add');
   return (
-    <aside className="palette" aria-label="Elements and layers">
+    <aside className="palette" aria-label="Elements, photos and layers">
       <div className="ptabs" role="tablist">
         <button role="tab" aria-selected={tab === 'add'} onClick={() => setTab('add')}><Plus size={14} /> Add</button>
+        <button role="tab" aria-selected={tab === 'photos'} onClick={() => setTab('photos')}><ImageIcon size={14} /> Photos</button>
         <button role="tab" aria-selected={tab === 'layers'} onClick={() => setTab('layers')}><Layers size={14} /> Layers</button>
       </div>
-      {tab === 'add' ? <Add /> : <LayersTab />}
+      {tab === 'add' && <Add />}
+      {tab === 'photos' && (
+        <PhotoBrowser draggable onPick={(p) => useStore.getState().addFromAction({ kind: 'el', type: 'image', preset: { src: p.url, alt: p.alt } })} />
+      )}
+      {tab === 'layers' && <LayersTab />}
     </aside>
   );
 }

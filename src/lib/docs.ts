@@ -10,7 +10,7 @@ export function createDoc(template?: Template, name = 'Untitled email'): EmailDo
   const now = Date.now();
   return {
     id: uid('doc'), name, subject: '', preheader: '',
-    brand: { ...DEFAULT_BRAND }, sections: template ? template.build() : [], createdAt: now, updatedAt: now
+    brand: { ...DEFAULT_BRAND, ...(template?.brand || {}) }, sections: template ? template.build() : [], badge: true, createdAt: now, updatedAt: now
   };
 }
 
@@ -76,6 +76,7 @@ export function normalizeDoc(raw: any): EmailDoc | null {
     preheader: String(raw.preheader || ''),
     brand: { ...DEFAULT_BRAND, ...(raw.brand || {}) },
     sections,
+    badge: raw.badge === false ? false : true,
     createdAt: Number(raw.createdAt) || now,
     updatedAt: now
   };

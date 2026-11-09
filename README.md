@@ -1,4 +1,4 @@
-# Branded Email Maker (v0.6)
+# Branded Email Maker (v0.7)
 
 Drag-and-drop builder for branded HTML emails. Next.js (App Router) + TypeScript + Zustand.
 
@@ -53,6 +53,20 @@ Set these in `.env.local` and in Vercel > Settings > Environment Variables (rede
 ## Inbox preview (v0.5)
 **Preview > Inbox** shows the subject and preheader as a desktop inbox row and a phone notification, with length hints.
 The pre-flight checks also warn when the HTML nears Gmail's ~102 KB clipping limit.
+
+## Pages
+- `/` is the landing page (how it works, features, template previews, your recent projects, FAQ). It reads recent projects from the browser.
+- `/editor` is the app. Deep links: `/editor?new=<templateId>`, `/editor?open=<docId>`, `/editor?templates=1`, `/editor?guide=1`.
+
+## Writing and editing (v0.7)
+- **Inline text editing:** double-click text on the canvas (or select it and press Enter). Enter saves single-line text, Ctrl/Cmd+Enter saves multi-line, Esc cancels.
+  Ctrl+B / Ctrl+I / Ctrl+K add `**bold**`, `*italic*` and `[link](https://)` markup. Works on headings, text, buttons, callouts, quotes, FAQ items and table cells.
+  The renderer tags editable regions (`data-edit`) on the canvas only; exported HTML never contains them.
+- **Image link fixer** (`src/lib/urlfix.ts`): pasting a Google Drive link converts it to `https://lh3.googleusercontent.com/d/<id>` (the file must be shared as "Anyone with the link"). Dropbox, Imgur and Pexels page links are converted too.
+- **Photos:** the Photos tab (drag onto the canvas) and the "Browse photos" link under image fields. `/api/photos` uses Pexels when `PEXELS_API_KEY` is set (cached for an hour) and otherwise the hand-picked collection in `src/lib/stock.ts`. If Pexels is busy it falls back automatically.
+- **My sections:** select a section, click the bookmark icon, name it. Saved in the browser (`srmail:sections`); drag or click to reuse.
+- **Templates:** 12 templates in `src/lib/templates.ts`, each with its own brand palette, shapes and photos. Add one by adding an entry there.
+- **Badge:** "Made with Branded Email Maker" appears under exported emails (on by default). Turn it off in Email settings. Link target: `NEXT_PUBLIC_SITE_URL`.
 
 ## Desktop and mobile layouts (v0.2)
 - Every block has **Show on desktop / Show on mobile**. Hidden blocks stay in the design and appear as striped stubs in the editor.

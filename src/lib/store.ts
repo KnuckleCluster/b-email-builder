@@ -1,15 +1,15 @@
 import { create } from 'zustand';
-import type { Brand, DocMeta, DragState, DropTarget, EmailDoc, Node, Props, Shape } from './types';
+import type { Brand, DocMeta, DragState, DropTarget, EmailDoc, Node, Photo, Props, SavedSection, Shape } from './types';
 import { DEFS } from './registry';
 import { makeCol, makeEl, makeRow, makeSection, newShape, type PaletteAction } from './nodes';
 import { TEMPLATES } from './templates';
 import { createDoc, normalizeDoc } from './docs';
 import { cloneFresh, insertNode, locate, mapNode, removeNode, uid } from './tree';
 import { propsFor } from './render';
-import { getLastId, listDocs, loadDoc, removeDoc, saveDoc, setLastId } from './storage';
+import { getLastId, listDocs, listSaved, loadDoc, removeDoc, saveDoc, setLastId, writeSaved } from './storage';
 
 export type View = 'design' | 'code' | 'preview';
-export type DialogName = 'new' | 'library' | 'export' | 'guide' | 'test' | null;
+export type DialogName = 'new' | 'library' | 'export' | 'guide' | 'test' | 'photos' | 'saveSection' | null;
 export type Device = 'desktop' | 'mobile';
 
 interface State {
@@ -27,6 +27,8 @@ interface State {
   toast: { id: number; msg: string; kind: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } } | null;
   drag: DragState | null;
   dialog: DialogName;
+  saved: SavedSection[];
+  photoPicker: ((p: Photo) => void) | null;
 
   init: () => void;
   notify: (msg: string, opts?: { kind?: 'success' | 'info' | 'error'; action?: { label: string; run: () => void } }) => void;
@@ -36,6 +38,10 @@ interface State {
   selectParent: () => void;
   setDrag: (d: DragState | null) => void;
   setDialog: (d: DialogName) => void;
+  openPhotos: (cb: (p: Photo) => void) => void;
+  saveSection: (nodeId: string, name: string) => void;
+  deleteSaved: (id: string) => void;
+  renameSaved: (id: string, name: string) => void;
 
   patchNode: (id: string, patch: Props, key?: string, base?: boolean) => void;
   resetMobile: (id: string, keys?: string[]) => void;
@@ -48,7 +54,7 @@ interface State {
   setRowLayout: (rowId: string, spans: number[]) => void;
   addFromAction: (action: PaletteAction, target?: DropTarget | null) => void;
   patchBrand: (patch: Partial<Brand>) => void;
-  patchMeta: (patch: Partial<Pick<EmailDoc, 'name' | 'subject' | 'preheader'>>) => void;
+  patchMeta: (patch: Partial<Pick<EmailDoc, 'name' | 'subject' | 'preheader' | 'badge'>>) => void;
 
   undo: () => void;
   redo: () => void;
@@ -147,6 +153,8 @@ export const useStore = create<State>((set, get) => {
     toast: null,
     drag: null,
     dialog: null,
+    saved: [],
+    photoPicker: null,
 
     init: () => {
       if (get().ready) return;
@@ -158,7 +166,7 @@ export const useStore = create<State>((set, get) => {
       }
       set({ doc, ready: true });
       saveDoc(doc);
-      set({ library: listDocs() });
+      set({ library: listDocs(), saved: listSaved() });
     },
 
     notify: (msg, opts) => set({ toast: { id: Date.now(), msg, kind: opts?.kind ?? 'info', action: opts?.action } }),
@@ -172,6 +180,28 @@ export const useStore = create<State>((set, get) => {
     },
     setDrag: (drag) => set({ drag }),
     setDialog: (dialog) => set({ dialog }),
+    openPhotos: (cb) => set({ photoPicker: cb, dialog: 'photos' }),
+
+    saveSection: (nodeId, name) => {
+      const loc = locate(get().doc.sections, nodeId);
+      if (!loc || loc.node.kind !== 'section') return;
+      const entry: SavedSection = { id: uid('sv'), name: name.trim() || 'My section', createdAt: Date.now(), node: cloneFresh(loc.node) };
+      const list = [entry, ...get().saved];
+      writeSaved(list);
+      set({ saved: list });
+      get().notify(`Saved “${entry.name}” to My sections`, { kind: 'success' });
+    },
+    deleteSaved: (id) => {
+      const list = get().saved.filter((s) => s.id !== id);
+      writeSaved(list);
+      set({ saved: list });
+      get().notify('Removed from My sections');
+    },
+    renameSaved: (id, name) => {
+      const list = get().saved.map((s) => (s.id === id ? { ...s, name: name.trim() || s.name } : s));
+      writeSaved(list);
+      set({ saved: list });
+    },
 
     patchNode: (id, patch, key, base = false) => {
       const mobile = get().device === 'mobile' && !base;
@@ -302,7 +332,7 @@ export const useStore = create<State>((set, get) => {
       flush();
       const t = TEMPLATES.find((x) => x.id === templateId) ?? TEMPLATES[0];
       load(createDoc(t, t.id === 'blank' ? 'Untitled email' : t.label));
-      get().notify(t.id === 'blank' ? 'New blank email' : `New “${t.label}” email started`, { kind: 'success' });
+      get().notify(t.id === 'blank' ? 'New blank email' : `Started from “${t.label}”`, { kind: 'success' });
     },
     openDoc: (id) => { flush(); const doc = normalizeDoc(loadDoc(id)); if (doc) load(doc); },
     duplicateDoc: (id) => {

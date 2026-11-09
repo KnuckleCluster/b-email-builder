@@ -1,19 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Download, FileJson, Info, Mail, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
+import { BookmarkPlus, Download, FileJson, Info, Mail, Plus, Trash2, TriangleAlert, X, CopyPlus } from 'lucide-react';
 import CopyButton from './CopyButton';
 import GuideDialog from './GuideDialog';
 import TestDialog from './TestDialog';
+import PhotoBrowser from './PhotoBrowser';
+import TemplateThumb from './TemplateThumb';
 import type { DialogName } from '@/lib/store';
 import { useStore } from '@/lib/store';
-import { TEMPLATES } from '@/lib/templates';
+import { TEMPLATES, TEMPLATE_CATEGORIES, type TemplateCategory } from '@/lib/templates';
+import { walk } from '@/lib/tree';
+import { locate } from '@/lib/tree';
 import { documentToHtml, lintDoc } from '@/lib/render';
 import { backupJson, download, slug } from '@/lib/docs';
 
 export type { DialogName };
 
-function Modal({ open, onClose, title, wide, fancy, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; fancy?: boolean; children: React.ReactNode }) {
+function Modal({ open, onClose, title, wide, xl, fancy, children }: { open: boolean; onClose: () => void; title: string; wide?: boolean; xl?: boolean; fancy?: boolean; children: React.ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const d = ref.current;
@@ -23,7 +27,7 @@ function Modal({ open, onClose, title, wide, fancy, children }: { open: boolean;
   }, [open]);
   return (
     <dialog
-      ref={ref} className={`${wide ? 'wide' : ''} ${fancy ? 'fancy' : ''}`} aria-label={title}
+      ref={ref} className={`${wide ? 'wide' : ''} ${xl ? 'xl' : ''} ${fancy ? 'fancy' : ''}`} aria-label={title}
       onClose={onClose}
       onClick={(e) => { if (e.target === ref.current) onClose(); }}
     >
@@ -50,18 +54,73 @@ function ago(ts: number) {
 }
 
 function NewDialog({ onClose }: { onClose: () => void }) {
+  const [cat, setCat] = useState<'All' | TemplateCategory>('All');
+  const list = TEMPLATES.filter((t) => cat === 'All' || t.category === cat);
   return (
     <>
-      <p className="dlg-sub">Pick a starting point. Your current email is saved automatically.</p>
+      <p className="dlg-sub">Every template comes with its own colors and photos. Change anything once you’re in. Your current email is saved automatically.</p>
+      <div className="pb-chips tpl-chips">
+        {(['All', ...TEMPLATE_CATEGORIES] as const).map((c) => <button key={c} type="button" className={cat === c ? 'on' : ''} onClick={() => setCat(c)}>{c}</button>)}
+      </div>
       <div className="tpl-grid">
-        {TEMPLATES.map((t) => (
-          <button key={t.id} className="tpl" onClick={() => { useStore.getState().newDoc(t.id); onClose(); }}>
-            <strong>{t.label}</strong>
-            <span>{t.description}</span>
+        {list.map((t) => (
+          <button key={t.id} className="tpl-card" onClick={() => { useStore.getState().newDoc(t.id); onClose(); }}>
+            {t.id === 'blank' ? (
+              <div className="tpl-blank" style={{ width: 264, height: 380 }}><Plus size={28} /><span>Start from scratch</span></div>
+            ) : (
+              <TemplateThumb t={t} />
+            )}
+            <div className="tpl-meta">
+              <strong>{t.label}</strong>
+              <span>{t.description}</span>
+              <em>{t.category}</em>
+            </div>
           </button>
         ))}
       </div>
     </>
+  );
+}
+
+function PhotosDialog({ onClose }: { onClose: () => void }) {
+  return (
+    <PhotoBrowser
+      onPick={(p) => {
+        const cb = useStore.getState().photoPicker;
+        useStore.setState({ photoPicker: null });
+        cb?.(p);
+        onClose();
+      }}
+    />
+  );
+}
+
+function SaveSectionDialog({ onClose }: { onClose: () => void }) {
+  const id = useStore((s) => s.selectedId);
+  const suggested = useMemo(() => {
+    const sec = id ? locate(useStore.getState().doc.sections, id)?.node : null;
+    let found = '';
+    if (sec) walk([sec], (n) => {
+      if (found || n.kind !== 'el') return;
+      const t = String(n.props.text || n.props.heading || '').replace(/\s+/g, ' ').trim();
+      if (t) found = t.slice(0, 32);
+    });
+    return found || 'My section';
+  }, [id]);
+  const [name, setName] = useState(suggested);
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (id) useStore.getState().saveSection(id, name); onClose(); }} className="td">
+      <div className="td-head">
+        <span className="td-ico"><BookmarkPlus size={22} /></span>
+        <div><h3>Save this section</h3><p>Reuse it in any email, in one click. Brand colors adapt to each email.</p></div>
+      </div>
+      <label className="flabel" htmlFor="ss-name">Name</label>
+      <input id="ss-name" className="input" value={name} autoFocus onFocus={(e) => e.currentTarget.select()} onChange={(e) => setName(e.target.value)} maxLength={60} />
+      <div className="td-actions">
+        <button type="submit" className="btn btn-accent"><BookmarkPlus size={15} /> Save to My sections</button>
+        <button type="button" className="btn btn-text" onClick={onClose}>Cancel</button>
+      </div>
+    </form>
   );
 }
 
@@ -147,10 +206,12 @@ export default function Dialogs({ open, onClose }: { open: DialogName; onClose: 
   const closeIf = (name: DialogName) => () => { if (useStore.getState().dialog === name) onClose(); };
   return (
     <>
-      <Modal open={open === 'new'} onClose={closeIf('new')} title="New email"><NewDialog onClose={onClose} /></Modal>
+      <Modal open={open === 'new'} onClose={closeIf('new')} title="Start with a template" xl><NewDialog onClose={onClose} /></Modal>
       <Modal open={open === 'library'} onClose={closeIf('library')} title="My emails"><LibraryDialog onClose={onClose} /></Modal>
       <Modal open={open === 'export'} onClose={closeIf('export')} title="Export" wide><ExportDialog /></Modal>
       <Modal open={open === 'guide'} onClose={closeIf('guide')} title="How to send your email" wide fancy><GuideDialog /></Modal>
+      <Modal open={open === 'photos'} onClose={closeIf('photos')} title="Choose a photo"><PhotosDialog onClose={onClose} /></Modal>
+      <Modal open={open === 'saveSection'} onClose={closeIf('saveSection')} title="Save section"><SaveSectionDialog onClose={onClose} /></Modal>
       <Modal open={open === 'test'} onClose={closeIf('test')} title="Send a test email"><TestDialog /></Modal>
     </>
   );

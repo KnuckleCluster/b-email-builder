@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Link2, Link2Off, Plus, RotateCcw, Trash2, X } from 'lucide-react';
+import { Image as ImageIcon, AlignCenter, AlignLeft, AlignRight, ArrowDown, ArrowUp, Link2, Link2Off, Plus, RotateCcw, Trash2, X } from 'lucide-react';
 import type { Field } from '@/lib/registry';
 import type { Props } from '@/lib/types';
 import { BRAND_TOKENS, resolveColor } from '@/lib/theme';
 import { useStore } from '@/lib/store';
+import { fixImageUrl, isImageKey } from '@/lib/urlfix';
 
 type OnChange = (value: any) => void;
 
@@ -51,6 +52,40 @@ function ColorControl({ value, onChange, allowNone }: { value: string; onChange:
         )}
       </div>
     </div>
+  );
+}
+
+/** URL input. For image fields it fixes Drive/Dropbox/Imgur/Pexels links on paste and blur, and offers the photo picker. */
+function UrlControl({ field, props, value, onChange, onPatch }: { field: { key: string }; props: Props; value: string; onChange: OnChange; onPatch?: (p: Props) => void }) {
+  const image = isImageKey(field.key);
+  const apply = (raw: string, announce = true) => {
+    const r = fixImageUrl(raw);
+    if (r.changed) {
+      onChange(r.url);
+      if (announce && r.note) useStore.getState().notify(r.note, { kind: 'success' });
+    }
+    return r.changed;
+  };
+  return (
+    <>
+      <input
+        className="input" type="text" inputMode="url" value={value ?? ''} placeholder="https://"
+        onChange={(e) => onChange(e.target.value)}
+        onPaste={image ? (e) => { const t = e.clipboardData.getData('text'); if (fixImageUrl(t).changed) { e.preventDefault(); apply(t); } } : undefined}
+        onBlur={image ? (e) => { apply(e.target.value); } : undefined}
+      />
+      {image && (
+        <button
+          type="button" className="linklike browse"
+          onClick={() => useStore.getState().openPhotos((p) => {
+            if (onPatch && 'alt' in props && !props.alt && (field.key === 'src' || field.key === 'image')) onPatch({ [field.key]: p.url, alt: p.alt });
+            else onChange(p.url);
+          })}
+        >
+          <ImageIcon size={13} /> Browse photos
+        </button>
+      )}
+    </>
   );
 }
 
@@ -158,11 +193,16 @@ function FieldBody({ field, props, onChange, onPatch }: Omit<FCProps, 'overridde
   if (field.showIf && !field.showIf(props)) return null;
   const v = props[field.key];
   switch (field.kind) {
-    case 'text':
     case 'url':
       return (
         <Row label={field.label} hint={field.hint}>
-          <input className="input" type="text" inputMode={field.kind === 'url' ? 'url' : undefined} value={v ?? ''} placeholder={field.kind === 'url' ? 'https://' : ''} onChange={(e) => onChange(e.target.value)} />
+          <UrlControl field={field} props={props} value={v} onChange={onChange} onPatch={onPatch} />
+        </Row>
+      );
+    case 'text':
+      return (
+        <Row label={field.label} hint={field.hint}>
+          <input className="input" type="text" value={v ?? ''} onChange={(e) => onChange(e.target.value)} />
         </Row>
       );
     case 'textarea':

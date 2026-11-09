@@ -59,6 +59,8 @@ export interface EmailDoc {
   preheader: string;
   brand: Brand;
   sections: Node[];
+  /** show the small "Made with" badge under the email (default on) */
+  badge?: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -87,3 +89,7 @@ export interface DropTarget {
   empty?: boolean;
 }
 export interface DragState { label: string; x: number; y: number; kind: DragKind; target: DropTarget | null }
+
+/* ---------- photos + saved sections ---------- */
+export interface Photo { id: string; thumb: string; url: string; alt: string; credit?: string; creditUrl?: string }
+export interface SavedSection { id: string; name: string; createdAt: number; node: Node }

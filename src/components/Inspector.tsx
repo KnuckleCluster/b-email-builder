@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronRight, CopyPlus, Smartphone, Trash2 } from 'lucide-react';
+import { BookmarkPlus, ChevronRight, CopyPlus, Smartphone, Trash2 } from 'lucide-react';
+import { fixImageUrl } from '@/lib/urlfix';
 import { useStore, selectedNode } from '@/lib/store';
 import { COL_FIELDS, DEFS, ROW_FIELDS, SECTION_FIELDS, elementCommon, type Field } from '@/lib/registry';
 import { LAYOUTS } from '@/lib/nodes';
@@ -92,6 +93,7 @@ function NodeInspector() {
       <div className="insp-title">
         <h2>{nodeLabel(node)}</h2>
         <div className="insp-actions">
+          {node.kind === 'section' && <button className="icon-btn" aria-label="Save to My sections" title="Save to My sections" onClick={() => useStore.getState().setDialog('saveSection')}><BookmarkPlus size={16} /></button>}
           <button className="icon-btn" aria-label="Duplicate" title="Duplicate" onClick={() => duplicateNode(node.id)}><CopyPlus size={16} /></button>
           <button className="icon-btn danger" aria-label="Delete" title="Delete" onClick={() => removeNode(node.id)}><Trash2 size={16} /></button>
         </div>
@@ -179,9 +181,19 @@ function SettingsInspector() {
           <div className="range"><input type="range" min={0} max={40} value={b.radius} onChange={(e) => patchBrand({ radius: +e.target.value })} /><span className="rval">{b.radius}px</span></div>
         </Row>
       </Section>
+      <Section title="Badge">
+        <label className="switch">
+          <input type="checkbox" role="switch" checked={doc.badge !== false} onChange={(e) => patchMeta({ badge: e.target.checked })} />
+          <span className="track" aria-hidden="true" /> Show “Made with Branded Email Maker”
+        </label>
+        <p className="fhint">A small gradient badge under your email. It’s on by default and you can turn it off any time.</p>
+      </Section>
       <Section title="Identity">
         <Row label="Company name"><input className="input" value={b.companyName} onChange={(e) => patchBrand({ companyName: e.target.value })} /></Row>
-        <Row label="Logo URL" hint="Used by Logo elements."><input className="input" value={b.logoUrl} placeholder="https://" onChange={(e) => patchBrand({ logoUrl: e.target.value })} /></Row>
+        <Row label="Logo URL" hint="Used by Logo elements."><input
+          className="input" value={b.logoUrl} placeholder="https://" onChange={(e) => patchBrand({ logoUrl: e.target.value })}
+          onBlur={(e) => { const r = fixImageUrl(e.target.value); if (r.changed) { patchBrand({ logoUrl: r.url }); if (r.note) useStore.getState().notify(r.note, { kind: 'success' }); } }}
+        /></Row>
       </Section>
     </>
   );

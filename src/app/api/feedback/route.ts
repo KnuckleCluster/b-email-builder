@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { classifyMailError, diagnose, feedbackTo, hardCap, makeTransporter, mask, missingVars, noteSent, usedToday } from '@/lib/mail';
+import { classifyMailError, diagnose, feedbackTo, fromAddress, hardCap, makeTransporter, mask, missingVars, noteSent, usedToday } from '@/lib/mail';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,15 +14,8 @@ export const maxDuration = 30;
 const TYPES = ['Bug', 'Idea', 'Other'];
 const hits = new Map<string, number[]>();
 
-/** Tiny per-instance rate limit: 5 messages / hour / IP. (Best-effort on serverless.) */
-function limited(ip: string) {
-  const now = Date.now();
-  const recent = (hits.get(ip) || []).filter((t) => now - t < 3_600_000);
-  if (recent.length >= 5) { hits.set(ip, recent); return true; }
-  recent.push(now);
-  hits.set(ip, recent);
-  return false;
-}
+/** Tiny per-instance rate limit: 5 delivered messages / hour / IP. Failed attempts don't count. (Best-effort on serverless.) */
+const recentFor = (ip: string) => (hits.get(ip) || []).filter((t) => Date.now() - t < 3_600_000);
 
 const clean = (v: unknown, max: number) => String(v ?? '').replace(/\u0000/g, '').trim().slice(0, max);
 const json = (body: object, status = 200) => NextResponse.json(body, { status });
@@ -43,7 +36,8 @@ export async function POST(req: Request) {
   if (missingVars().length) return json({ error: 'not_configured' }, 503);
 
   const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
-  if (limited(ip)) return json({ error: 'rate_limited' }, 429);
+  const mine = recentFor(ip);
+  if (mine.length >= 5) return json({ error: 'rate_limited' }, 429);
   if (usedToday() >= hardCap()) return json({ error: 'busy' }, 503);
 
   const ua = req.headers.get('user-agent') ?? '';
@@ -62,7 +56,7 @@ export async function POST(req: Request) {
 
   try {
     await makeTransporter().sendMail({
-      from: process.env.MAIL_FROM,
+      from: `"Email Maker Feedback" <${fromAddress(process.env.MAIL_FROM || '')}>`,
       to: feedbackTo(),
       ...(email ? { replyTo: email } : {}),
       subject,
@@ -75,6 +69,7 @@ export async function POST(req: Request) {
     return json({ error: code }, code === 'send_failed' ? 502 : 503);
   }
 
+  hits.set(ip, [...mine, Date.now()]);
   noteSent();
   console.log(`[feedback] delivered to ${mask(feedbackTo())} (today: ${usedToday()})`);
   return json({ ok: true });
