@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import type { Brand, DocMeta, DragState, DropTarget, EmailDoc, Node, Photo, Props, SavedSection, Shape } from './types';
+import type { Brand, DocMeta, DragState, DropTarget, EmailDoc, Frame, Node, Photo, Props, SavedSection, Shape } from './types';
+import { BG_PRESETS } from './frame';
 import { DEFS } from './registry';
 import { makeCol, makeEl, makeRow, makeSection, newShape, type PaletteAction } from './nodes';
 import { TEMPLATES } from './templates';
@@ -54,6 +55,8 @@ interface State {
   setRowLayout: (rowId: string, spans: number[]) => void;
   addFromAction: (action: PaletteAction, target?: DropTarget | null) => void;
   patchBrand: (patch: Partial<Brand>) => void;
+  patchFrame: (patch: Partial<Frame>) => void;
+  applyBgPreset: (key: string) => void;
   patchMeta: (patch: Partial<Pick<EmailDoc, 'name' | 'subject' | 'preheader' | 'badge'>>) => void;
 
   undo: () => void;
@@ -310,6 +313,12 @@ export const useStore = create<State>((set, get) => {
       get().patchNode(loc.node.id, { shapes: [...current, shape] });
       set({ selectedId: loc.node.id });
       get().notify('Shape added. Drag its handle on the canvas to move it.');
+    },
+
+    patchFrame: (patch) => mutate((d) => ({ ...d, frame: { ...(d.frame || {}), ...patch } }), `frame:${Object.keys(patch).join(',')}`),
+    applyBgPreset: (key) => {
+      const preset = BG_PRESETS.find((p) => p.key === key);
+      if (preset) mutate((d) => ({ ...d, frame: { ...(d.frame || {}), ...preset.patch() } }));
     },
 
     patchBrand: (patch) => mutate((d) => ({ ...d, brand: { ...d.brand, ...patch } }), `brand:${Object.keys(patch).join(',')}`),

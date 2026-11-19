@@ -1,5 +1,5 @@
 import {
-  Circle, CircleDashed, CircleHelp, Code, Columns2, Columns3, Columns4, Film, Grid2x2, Grid3x3, Grip, Heading,
+  Blend, Circle, CircleDashed, CircleHelp, Hash, Slash, Code, Columns2, Columns3, Columns4, Film, Grid2x2, Grid3x3, Grip, Heading,
   Image as ImageIcon, LayoutTemplate, Minus, MousePointerClick, MoveVertical, PanelTop, Quote, Rocket, Share2,
   Sparkles, Table, Type, Video, FileText, Rows3, Square, type LucideIcon
 } from 'lucide-react';
@@ -36,7 +36,7 @@ export const simpleSection = (els: Node[], props: Props = {}) => makeSection([ma
 
 export const newShape = (p: Partial<Shape> = {}): Shape => ({
   id: uid('sh'), kind: 'circle', color: '@primary', opacity: 100, x: 100, y: 0, size: 120, thickness: 14,
-  dir: 'h', pos: 40, bandSize: 20, gap: 18, ...p
+  dir: 'h', pos: 40, bandSize: 20, gap: 18, angle: 45, ...p
 });
 
 /* ---------- row layouts ---------- */
@@ -146,7 +146,10 @@ export const PALETTE: PaletteItem[] = [
   { key: 'sh-circle', label: 'Circle', icon: Circle, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'circle' } } },
   { key: 'sh-ring', label: 'Ring', icon: CircleDashed, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'ring', size: 90 } } },
   { key: 'sh-band', label: 'Band', icon: Minus, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'band', color: '@secondary' } } },
-  { key: 'sh-dots', label: 'Dots', icon: Grip, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'dots', size: 2, opacity: 35 } } }
+  { key: 'sh-dots', label: 'Dots', icon: Grip, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'dots', size: 2, opacity: 35 } } },
+  { key: 'sh-glow', label: 'Soft glow', icon: Blend, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'glow', size: 280, opacity: 70 } } },
+  { key: 'sh-grid', label: 'Grid', icon: Hash, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'grid', gap: 28, thickness: 1, opacity: 14, color: '@text' } } },
+  { key: 'sh-stripes', label: 'Stripes', icon: Slash, category: 'Overlays', action: { kind: 'shape', shape: { kind: 'stripes', gap: 16, thickness: 6, opacity: 14, angle: 45 } } }
 ];
 
 export const CATEGORY_ORDER: PaletteItem['category'][] = ['Layout', 'Elements', 'Sections', 'Overlays'];

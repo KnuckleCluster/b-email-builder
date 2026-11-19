@@ -1,4 +1,5 @@
-import type { Brand, Node, Props } from './types';
+import type { Brand, Frame, Node, Props } from './types';
+import { BG_PRESETS } from './frame';
 import { SECTION_PRESETS, makeEl, makeRow, makeSection, newShape, simpleSection } from './nodes';
 import { stockUrl } from './stock';
 
@@ -12,6 +13,8 @@ export interface Template {
   category: TemplateCategory;
   /** each template ships with its own brand palette */
   brand?: Partial<Brand>;
+  /** rounded container + page background */
+  frame?: Partial<Frame>;
   build: () => Node[];
 }
 
@@ -30,6 +33,7 @@ const footer = (company: string, tweak: Props = {}) => {
   return { ...n, children: n.children!.map((r) => ({ ...r, children: r.children!.map((c) => ({ ...c, children: c.children!.map((e) => ({ ...e, props: { ...e.props, company, ...tweak } })) })) })) };
 };
 const WHITE = '#FFFFFF';
+const bg = (key: string, extra: Partial<Frame> = {}): Partial<Frame> => ({ ...BG_PRESETS.find((p) => p.key === key)!.patch(), ...extra });
 
 /** Image on one side, copy on the other. */
 const split = (photo: string, alt: string, heading: string, text: string, btn: string, flip = false, props: Props = {}) =>
@@ -55,6 +59,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'newsletter', label: 'Weekly newsletter', description: 'Hero with shapes, highlights, a spotlight story and a call to action.', category: 'General',
+    frame: bg('glow', { radius: 16, inset: 32, shadow: 'soft' }),
     brand: { companyName: 'The Weekly Launchpad' },
     build: () => [
       logo(),
@@ -85,12 +90,14 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'welcome', label: 'Welcome series', description: 'Onboarding: hero, quick wins, testimonial and FAQ.', category: 'General',
+    frame: bg('ocean', { radius: 16, inset: 32, shadow: 'soft' }),
     brand: { companyName: 'Welcome Co.' },
     build: () => [logo(), preset('hero', { bg: '@primary' }), preset('features'), preset('testimonial'), preset('faq'), preset('social'), footer('Welcome Co.')]
   },
 
   {
     id: 'launch', label: 'Product launch', description: 'Dark, glowing hero with a product shot, stats and a pre-order CTA.', category: 'Business',
+    frame: bg('midnight', { radius: 20, inset: 36, shadow: 'lifted' }),
     brand: { primary: '#7C5CFF', secondary: '#EFEAFF', text: '#0E0B1F', muted: '#5E5A78', page: '#F4F2FF', companyName: 'Orbit' },
     build: () => [
       logo(),
@@ -113,6 +120,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'agency', label: 'Agency update', description: 'Quarterly results, a case study and a testimonial for B2B audiences.', category: 'Business',
+    frame: bg('grid', { radius: 8, inset: 28 }),
     brand: { primary: '#1D4ED8', secondary: '#DBEAFE', text: '#0B1B3B', muted: '#4A5A78', page: '#EEF3FB', headingFont: 'georgia', companyName: 'Northwind Studio' },
     build: () => [
       logo(),
@@ -132,6 +140,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'service', label: 'Service intro', description: 'Introduce a service: benefits, simple pricing and an FAQ.', category: 'Business',
+    frame: bg('dots', { radius: 14, inset: 28, shadow: 'soft' }),
     brand: { companyName: 'Your VA Co.' },
     build: () => [
       logo(),
@@ -146,6 +155,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'sale', label: 'Big sale', description: 'Bold promo with a discount badge, a product grid and urgency.', category: 'Sales',
+    frame: bg('stripes', { radius: 16, inset: 32, shadow: 'soft' }),
     brand: { primary: '#E11D48', secondary: '#FFE4E6', text: '#1A0B10', muted: '#6B4A52', page: '#FFF5F6', companyName: 'Stride & Co.' },
     build: () => [
       logo(),
@@ -176,6 +186,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'listing', label: 'New listing', description: 'Just-listed property with photo hero, key facts, gallery and agent card.', category: 'Real estate',
+    frame: bg('golden', { radius: 16, inset: 36, shadow: 'lifted' }),
     brand: { primary: '#0F766E', secondary: '#CCFBF1', text: '#0B2B2A', muted: '#4B6361', page: '#EEF7F6', headingFont: 'georgia', companyName: 'Maple Grove Realty' },
     build: () => [
       logo(),
@@ -204,6 +215,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'cafe', label: 'Café promo', description: 'Warm, photo-led promo for a café, bakery or restaurant.', category: 'Food & drink',
+    frame: bg('sunset', { radius: 16, inset: 32, shadow: 'soft' }),
     brand: { primary: '#B45309', secondary: '#FEF3C7', text: '#2B1B0E', muted: '#6B5B4B', page: '#FBF5EC', headingFont: 'georgia', companyName: 'Maple & Bean' },
     build: () => [
       logo(),
@@ -228,6 +240,7 @@ export const TEMPLATES: Template[] = [
 
   {
     id: 'invite', label: 'Event invitation', description: 'Playful invite with date, time, place and an RSVP button.', category: 'Events',
+    frame: bg('stars', { radius: 20, inset: 36, shadow: 'lifted' }),
     brand: { primary: '#DB2777', secondary: '#FCE7F3', text: '#240A1B', muted: '#6E4A5E', page: '#FFF1F7', companyName: 'Lumen Events' },
     build: () => [
       logo(),

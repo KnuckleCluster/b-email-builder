@@ -5,7 +5,8 @@ import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpToLine, Bold, BookmarkPlus, CopyPlus, Eye, EyeOff, GripVertical, Italic, Link2, PenLine, Trash2
 } from 'lucide-react';
 import type { Node, Shape } from '@/lib/types';
-import { BADGE_TEXT, canvasHtml, mobileCssScoped, propsFor } from '@/lib/render';
+import { BADGE_TEXT, canvasHtml, frameStyle, mobileCssScoped, propsFor } from '@/lib/render';
+import { SHADOW_VALUE, getFrame, isPlainFrame } from '@/lib/frame';
 import { sanitize } from '@/lib/sanitize';
 import { DEFS } from '@/lib/registry';
 import { resolveColor } from '@/lib/theme';
@@ -51,6 +52,19 @@ export default function Canvas() {
   const html = useMemo(() => sanitize(canvasHtml(doc, device)), [doc, device]);
   const css = useMemo(() => (mobile ? mobileCssScoped(doc.brand, '.mail-col.is-mobile') : ''), [mobile, doc.brand]);
   const st = useStore.getState;
+
+  /* ---------- frame: the page behind the email ---------- */
+  const frame = getFrame(doc);
+  const plain = isPlainFrame(frame);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const pageCss = useMemo(() => frameStyle(doc, true).css, [doc]);
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    if (plain) { el.style.cssText = ''; return; }
+    const w = mobile ? 375 + 20 : doc.brand.width + 120;
+    el.style.cssText = `${pageCss}width:min(100%,${w}px);margin:0 auto;padding:${frame.inset}px ${mobile ? 10 : 60}px;border-radius:14px;overflow:hidden;`;
+  }, [plain, pageCss, frame.inset, mobile, doc.brand.width]);
 
   /* ---------- measuring overlays ---------- */
   const toStage = useCallback((el: Element): R | null => {
@@ -208,7 +222,7 @@ export default function Canvas() {
   const shapes: Shape[] = node && node.kind !== 'el' ? ((propsFor(node, device).shapes as Shape[]) || []) : [];
   const handlePos = (s: Shape): { x: number; y: number } | null => {
     if (!selRect) return null;
-    if (s.kind === 'circle' || s.kind === 'ring') return { x: selRect.left + (selRect.width * s.x) / 100, y: selRect.top + (selRect.height * s.y) / 100 };
+    if (s.kind === 'circle' || s.kind === 'ring' || s.kind === 'glow') return { x: selRect.left + (selRect.width * s.x) / 100, y: selRect.top + (selRect.height * s.y) / 100 };
     if (s.kind === 'band') {
       const mid = s.pos + s.bandSize / 2;
       return s.dir === 'v' ? { x: selRect.left + (selRect.width * mid) / 100, y: selRect.top + selRect.height / 2 } : { x: selRect.left + selRect.width / 2, y: selRect.top + (selRect.height * mid) / 100 };
@@ -243,10 +257,11 @@ export default function Canvas() {
   return (
     <div className="stage" ref={stageRef} onClick={() => st().select(null)}>
       <style dangerouslySetInnerHTML={{ __html: css }} />
+      <div ref={pageRef} className={`page-frame ${plain ? 'plain' : ''}`}>
       <div
         ref={rootRef}
         className={`mail-col ${mobile ? 'is-mobile' : ''}`}
-        style={{ width: `min(100%, ${width}px)`, background: resolveColor('@surface', doc.brand) }}
+        style={{ width: `min(100%, ${width}px)`, background: resolveColor('@surface', doc.brand), ...(plain ? {} : { borderRadius: frame.radius, boxShadow: SHADOW_VALUE[frame.shadow] }) }}
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); st().select(nidOf(e.target)?.dataset.nid ?? null); }}
         onDoubleClick={(e) => {
           const el = (e.target as HTMLElement).closest<HTMLElement>('[data-edit]');
@@ -262,6 +277,7 @@ export default function Canvas() {
           ✦&nbsp; {BADGE_TEXT}
         </button>
       )}
+      </div>
 
       {doc.sections.length === 0 && (
         <div className="empty-canvas" style={{ width: `min(100%, ${width}px)` }}>

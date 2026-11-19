@@ -53,6 +53,12 @@ export default function Editor() {
 
   useEffect(() => { useStore.getState().init(); }, []);
 
+  // the editor is a full-window app: never let the page itself scroll
+  useEffect(() => {
+    document.body.classList.add('editor-body');
+    return () => document.body.classList.remove('editor-body');
+  }, []);
+
   // deep links from the home page: /editor?new=<template>, ?open=<id>, ?templates=1, ?guide=1
   const handled = useRef(false);
   useEffect(() => {

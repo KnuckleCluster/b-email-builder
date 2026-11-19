@@ -284,19 +284,21 @@ export const DEFS: Record<BlockType, BlockDef> = {
 
 
 /* ---------- containers: shapes + section / row / column fields ---------- */
+const POS = (p: Props) => p.kind === 'circle' || p.kind === 'ring' || p.kind === 'glow';
 export const SHAPE_ITEM_FIELDS: Field[] = [
-  { ...(S('kind', 'Shape') as any), options: [{ value: 'circle', label: 'Circle' }, { value: 'ring', label: 'Ring' }, { value: 'band', label: 'Band' }, { value: 'dots', label: 'Dot pattern' }] },
+  { ...(S('kind', 'Shape') as any), options: [{ value: 'circle', label: 'Circle' }, { value: 'ring', label: 'Ring' }, { value: 'glow', label: 'Soft glow' }, { value: 'band', label: 'Band' }, { value: 'dots', label: 'Dot pattern' }, { value: 'grid', label: 'Grid lines' }, { value: 'stripes', label: 'Stripes' }] },
   { kind: 'color', key: 'color', label: 'Color' },
   { kind: 'range', key: 'opacity', label: 'Opacity', min: 5, max: 100, unit: '%' },
-  { kind: 'range', key: 'x', label: 'Horizontal position', min: -60, max: 160, unit: '%', hint: '0% = left edge, 100% = right edge. Past either edge it bleeds off.', showIf: (p) => p.kind === 'circle' || p.kind === 'ring' },
-  { kind: 'range', key: 'y', label: 'Vertical position', min: -60, max: 160, unit: '%', showIf: (p) => p.kind === 'circle' || p.kind === 'ring' },
-  { kind: 'range', key: 'size', label: 'Radius', min: 10, max: 400, unit: 'px', showIf: (p) => p.kind === 'circle' || p.kind === 'ring' },
-  { kind: 'range', key: 'thickness', label: 'Thickness', min: 2, max: 80, unit: 'px', showIf: (p) => p.kind === 'ring' },
+  { kind: 'range', key: 'x', label: 'Horizontal position', min: -60, max: 160, unit: '%', hint: '0% = left edge, 100% = right edge. Past either edge it bleeds off.', showIf: POS },
+  { kind: 'range', key: 'y', label: 'Vertical position', min: -60, max: 160, unit: '%', showIf: POS },
+  { kind: 'range', key: 'size', label: 'Radius', min: 10, max: 900, unit: 'px', showIf: POS },
+  { kind: 'range', key: 'thickness', label: 'Thickness', min: 1, max: 80, unit: 'px', showIf: (p) => p.kind === 'ring' || p.kind === 'grid' || p.kind === 'stripes' },
   { ...(S('dir', 'Direction') as any), options: [{ value: 'h', label: 'Horizontal band' }, { value: 'v', label: 'Vertical band' }], showIf: (p: Props) => p.kind === 'band' },
   { kind: 'range', key: 'pos', label: 'Band position', min: -20, max: 120, unit: '%', showIf: (p) => p.kind === 'band' },
   { kind: 'range', key: 'bandSize', label: 'Band thickness', min: 1, max: 100, unit: '%', showIf: (p) => p.kind === 'band' },
   { kind: 'range', key: 'size', label: 'Dot radius', min: 1, max: 12, unit: 'px', showIf: (p) => p.kind === 'dots' },
-  { kind: 'range', key: 'gap', label: 'Dot spacing', min: 8, max: 60, unit: 'px', showIf: (p) => p.kind === 'dots' }
+  { kind: 'range', key: 'gap', label: 'Spacing', min: 6, max: 80, unit: 'px', showIf: (p) => p.kind === 'dots' || p.kind === 'grid' || p.kind === 'stripes' },
+  { kind: 'range', key: 'angle', label: 'Angle', min: 0, max: 180, unit: '°', showIf: (p) => p.kind === 'stripes' }
 ];
 export const SHAPES_FIELD: Field = {
   kind: 'list', key: 'shapes', label: 'Shapes behind content', group: 'Shapes', itemName: 'Shape',

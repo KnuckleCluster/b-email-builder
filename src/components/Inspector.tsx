@@ -10,6 +10,7 @@ import { propsFor } from '@/lib/render';
 import { locate } from '@/lib/tree';
 import { FieldControl, Row } from './fields/FieldControls';
 import { nodeLabel } from './Canvas';
+import FrameSettings from './FrameSettings';
 
 function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
   return (
@@ -164,6 +165,7 @@ function SettingsInspector() {
         ))}
         <p className="fhint">Anything using a brand color updates everywhere when you change these.</p>
       </Section>
+      <FrameSettings />
       <Section title="Typography & layout">
         <Row label="Body font">
           <select className="input" value={b.font} onChange={(e) => patchBrand({ font: e.target.value })}>{Object.entries(FONTS).map(([k, f]) => <option key={k} value={k}>{f.label}</option>)}</select>

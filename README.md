@@ -1,4 +1,4 @@
-# Branded Email Maker (v0.7)
+# Branded Email Maker (v0.8)
 
 Drag-and-drop builder for branded HTML emails. Next.js (App Router) + TypeScript + Zustand.
 
@@ -63,10 +63,18 @@ The pre-flight checks also warn when the HTML nears Gmail's ~102 KB clipping lim
   Ctrl+B / Ctrl+I / Ctrl+K add `**bold**`, `*italic*` and `[link](https://)` markup. Works on headings, text, buttons, callouts, quotes, FAQ items and table cells.
   The renderer tags editable regions (`data-edit`) on the canvas only; exported HTML never contains them.
 - **Image link fixer** (`src/lib/urlfix.ts`): pasting a Google Drive link converts it to `https://lh3.googleusercontent.com/d/<id>` (the file must be shared as "Anyone with the link"). Dropbox, Imgur and Pexels page links are converted too.
-- **Photos:** the Photos tab (drag onto the canvas) and the "Browse photos" link under image fields. `/api/photos` uses Pexels when `PEXELS_API_KEY` is set (cached for an hour) and otherwise the hand-picked collection in `src/lib/stock.ts`. If Pexels is busy it falls back automatically.
+- **Photos:** the Photos tab (drag onto the canvas) and the "Browse photos" link under image fields. `/api/photos` tries Unsplash (`UNSPLASH_ACCESS_KEY`), then Pexels (`PEXELS_API_KEY`, optional), then the hand-picked collection in `src/lib/stock.ts`, so the picker always works. Unsplash photos are hot-linked, credited to the photographer, and a usage ping is sent via `/api/photos/track` (their API guidelines). Results are cached for hours to stay inside the 50/hour starter limit.
 - **My sections:** select a section, click the bookmark icon, name it. Saved in the browser (`srmail:sections`); drag or click to reuse.
 - **Templates:** 12 templates in `src/lib/templates.ts`, each with its own brand palette, shapes and photos. Add one by adding an entry there.
 - **Badge:** "Made with Branded Email Maker" appears under exported emails (on by default). Turn it off in Email settings. Link target: `NEXT_PUBLIC_SITE_URL`.
+
+## Frame & background (v0.8)
+Email settings > **Frame & background** controls the page behind the email and the rounded container (`src/lib/frame.ts`, `frameStyle()` in `render.ts`):
+- Container: corner radius, space around, shadow.
+- Page: a color, a single image (fit/focus), or a repeating pattern (e.g. the brand logo, adjustable size). Optional **blur** and a **fade** layer over the image.
+- 12 one-click presets (brand glow, midnight, sunset, ocean, dots, grid, stripes, and four blurred photo backgrounds) and a list of decorative shapes (`glow`, `grid` and `stripes` are new shape kinds usable on any container too).
+- Blur is done by the free wsrv.nl image proxy (email clients can't blur). If it is ever down, the plain page color shows. Outlook desktop ignores background images and gradients and shows the page color.
+- On phones the card keeps a little page visible around it when the frame is styled.
 
 ## Desktop and mobile layouts (v0.2)
 - Every block has **Show on desktop / Show on mobile**. Hidden blocks stay in the design and appear as striped stubs in the editor.

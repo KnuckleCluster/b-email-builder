@@ -24,7 +24,7 @@ export interface Node {
 /** Decorative layer drawn behind a container's content (never takes space). */
 export interface Shape {
   id: string;
-  kind: 'circle' | 'ring' | 'band' | 'dots';
+  kind: 'circle' | 'ring' | 'band' | 'dots' | 'glow' | 'grid' | 'stripes';
   color: string;
   opacity: number;   // 5-100
   x: number;         // circle/ring centre, % of container width (can be <0 or >100)
@@ -34,7 +34,8 @@ export interface Shape {
   dir: 'h' | 'v';    // band direction
   pos: number;       // band start, %
   bandSize: number;  // band thickness, %
-  gap: number;       // dots spacing px
+  gap: number;       // dots / grid / stripes spacing px
+  angle: number;     // stripes angle in degrees
 }
 export interface Brand {
   primary: string;
@@ -61,6 +62,8 @@ export interface EmailDoc {
   sections: Node[];
   /** show the small "Made with" badge under the email (default on) */
   badge?: boolean;
+  /** the "frame": rounded container + page background behind the email */
+  frame?: Partial<Frame>;
   createdAt: number;
   updatedAt: number;
 }
@@ -91,5 +94,22 @@ export interface DropTarget {
 export interface DragState { label: string; x: number; y: number; kind: DragKind; target: DropTarget | null }
 
 /* ---------- photos + saved sections ---------- */
-export interface Photo { id: string; thumb: string; url: string; alt: string; credit?: string; creditUrl?: string }
+export interface Photo { id: string; thumb: string; url: string; alt: string; credit?: string; creditUrl?: string; /** Unsplash download-tracking endpoint (pinged when a photo is used) */ track?: string }
 export interface SavedSection { id: string; name: string; createdAt: number; node: Node }
+
+/* ---------- frame: container + page background ---------- */
+export interface Frame {
+  radius: number;            // corner radius of the email container (0 = square)
+  inset: number;             // space above/below the container, px
+  shadow: 'none' | 'soft' | 'lifted';
+  bgMode: 'color' | 'image' | 'tile';
+  bgColor: string;           // page color (token or hex)
+  bgImage: string;           // image URL (single image or repeating tile)
+  bgBlur: number;            // 0-50, applied through an image proxy
+  bgDim: number;             // 0-90, strength of the fade layer over the image
+  bgDimColor: string;        // color of the fade layer
+  bgSize: 'cover' | 'contain';
+  bgPos: 'center' | 'top' | 'bottom';
+  tile: number;              // tile size in px (pattern mode)
+  shapes: Shape[];           // decorations drawn over the page color / image
+}

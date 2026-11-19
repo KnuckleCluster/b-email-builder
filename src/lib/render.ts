@@ -1,4 +1,5 @@
-import type { Brand, EmailDoc, Node, Props, Shape } from './types';
+import type { Brand, EmailDoc, Frame, Node, Props, Shape } from './types';
+import { SHADOWS, getFrame, isPlainFrame } from './frame';
 import { walk } from './tree';
 import { FONTS, fontStack, resolveColor as rc } from './theme';
 
@@ -288,29 +289,45 @@ function rgba(color: string, a: number): string {
 
 interface Layer { img: string; size: string; pos: string; rep: string }
 
-function shapeLayer(s: Partial<Shape>, b: Brand): Layer | null {
+function shapeLayers(s: Partial<Shape>, b: Brand): Layer[] {
   const col = rc(s.color || '@primary', b, '#2E5BFF');
   const a = clamp(num(s.opacity, 100), 0, 100) / 100;
   const solid = rgba(col, a), clear = rgba(col, 0);
   const x = num(s.x, 100), y = num(s.y, 0), R = Math.max(1, num(s.size, 120));
+  const full = (img: string): Layer => ({ img, size: '100% 100%', pos: '0 0', rep: 'no-repeat' });
   switch (s.kind) {
     case 'circle':
-      return { img: `radial-gradient(circle at ${x}% ${y}%,${solid} 0,${solid} ${R}px,${clear} ${R + 1}px)`, size: '100% 100%', pos: '0 0', rep: 'no-repeat' };
+      return [full(`radial-gradient(circle at ${x}% ${y}%,${solid} 0,${solid} ${R}px,${clear} ${R + 1}px)`)];
     case 'ring': {
       const t = clamp(num(s.thickness, 14), 1, R);
-      return { img: `radial-gradient(circle at ${x}% ${y}%,${clear} 0,${clear} ${R - t}px,${solid} ${R - t + 1}px,${solid} ${R}px,${clear} ${R + 1}px)`, size: '100% 100%', pos: '0 0', rep: 'no-repeat' };
+      return [full(`radial-gradient(circle at ${x}% ${y}%,${clear} 0,${clear} ${R - t}px,${solid} ${R - t + 1}px,${solid} ${R}px,${clear} ${R + 1}px)`)];
     }
+    case 'glow':
+      // a soft blob: fades smoothly to transparent, which reads as a blurred shape
+      return [full(`radial-gradient(circle ${R}px at ${x}% ${y}%,${solid} 0,${rgba(col, a * 0.5)} 45%,${clear} 100%)`)];
     case 'band': {
       const p0 = num(s.pos, 40), p1 = p0 + num(s.bandSize, 20);
       const dir = s.dir === 'v' ? 'to right' : 'to bottom';
-      return { img: `linear-gradient(${dir},${clear} 0,${clear} ${p0}%,${solid} ${p0}%,${solid} ${p1}%,${clear} ${p1}%)`, size: '100% 100%', pos: '0 0', rep: 'no-repeat' };
+      return [full(`linear-gradient(${dir},${clear} 0,${clear} ${p0}%,${solid} ${p0}%,${solid} ${p1}%,${clear} ${p1}%)`)];
     }
     case 'dots': {
       const g = Math.max(6, num(s.gap, 18)), r = clamp(num(s.size, 2), 1, g / 2);
-      return { img: `radial-gradient(circle at 50% 50%,${solid} 0,${solid} ${r}px,${clear} ${r + 1}px)`, size: `${g}px ${g}px`, pos: '0 0', rep: 'repeat' };
+      return [{ img: `radial-gradient(circle at 50% 50%,${solid} 0,${solid} ${r}px,${clear} ${r + 1}px)`, size: `${g}px ${g}px`, pos: '0 0', rep: 'repeat' }];
+    }
+    case 'grid': {
+      const g = Math.max(8, num(s.gap, 28)), t = clamp(num(s.thickness, 1), 1, 6);
+      const size = `${g}px ${g}px`;
+      return [
+        { img: `linear-gradient(${solid} ${t}px,${clear} ${t}px)`, size, pos: '0 0', rep: 'repeat' },
+        { img: `linear-gradient(90deg,${solid} ${t}px,${clear} ${t}px)`, size, pos: '0 0', rep: 'repeat' }
+      ];
+    }
+    case 'stripes': {
+      const g = Math.max(6, num(s.gap, 16)), t = clamp(num(s.thickness, 6), 1, g - 1), ang = num(s.angle, 45);
+      return [full(`repeating-linear-gradient(${ang}deg,${solid} 0,${solid} ${t}px,${clear} ${t}px,${clear} ${g}px)`)];
     }
     default:
-      return null;
+      return [];
   }
 }
 
@@ -319,12 +336,43 @@ function paint(p: Props, b: Brand): { css: string; bg: string } {
   const bg = rc(p.bg, b, '');
   const layers: Layer[] = [];
   const shapes: Partial<Shape>[] = Array.isArray(p.shapes) ? p.shapes : [];
-  [...shapes].reverse().forEach((s) => { const l = shapeLayer(s, b); if (l) layers.push(l); });
+  [...shapes].reverse().forEach((s) => layers.push(...shapeLayers(s, b)));
   if (p.bgImage) layers.push({ img: `url('${esc(String(p.bgImage).replace(/'/g, '%27'))}')`, size: 'cover', pos: 'center', rep: 'no-repeat' });
   let css = bg ? `background-color:${bg};` : '';
   if (layers.length)
     css += `background-image:${layers.map((l) => l.img).join(',')};background-size:${layers.map((l) => l.size).join(',')};background-position:${layers.map((l) => l.pos).join(',')};background-repeat:${layers.map((l) => l.rep).join(',')};`;
   return { css, bg };
+}
+
+/** Blur is applied by a free image proxy (wsrv.nl), because email clients can't blur images themselves. */
+const proxied = (src: string, blur: number, w: number, png: boolean) =>
+  blur > 0 ? `https://wsrv.nl/?url=${encodeURIComponent(src)}&w=${w}&blur=${Math.round(blur)}&output=${png ? 'png' : 'jpg'}&q=75` : src;
+
+/** CSS for the page behind the email container: colour, optional image/pattern (+blur, +fade) and decorative shapes. */
+export function frameStyle(doc: { brand: Brand; frame?: Partial<Frame> }, raw = false): { css: string; bgcolor: string } {
+  const f = getFrame(doc);
+  const b = doc.brand;
+  const bgcolor = rc(f.bgColor || '@page', b, '#EEF1F6');
+  const layers: Layer[] = [];
+  [...f.shapes].reverse().forEach((s) => layers.push(...shapeLayers(s, b)));
+  const src = (f.bgImage || '').trim();
+  const hasImg = (f.bgMode === 'image' || f.bgMode === 'tile') && !!src;
+  if (hasImg && f.bgDim > 0) {
+    const c = rgba(rc(f.bgDimColor || '@page', b, bgcolor), clamp(f.bgDim, 0, 100) / 100);
+    layers.push({ img: `linear-gradient(${c},${c})`, size: '100% 100%', pos: '0 0', rep: 'no-repeat' });
+  }
+  if (hasImg) {
+    const tile = f.bgMode === 'tile';
+    const url = proxied(src, f.bgBlur, tile ? Math.min(800, Math.round(f.tile * 2)) : 1600, tile).replace(/'/g, '%27');
+    const u = `url('${raw ? url : esc(url)}')`;
+    layers.push(tile
+      ? { img: u, size: `${Math.max(16, f.tile)}px auto`, pos: 'center top', rep: 'repeat' }
+      : { img: u, size: f.bgSize, pos: f.bgPos === 'center' ? 'center' : `center ${f.bgPos}`, rep: 'no-repeat' });
+  }
+  let css = `background-color:${bgcolor};`;
+  if (layers.length)
+    css += `background-image:${layers.map((l) => l.img).join(',')};background-size:${layers.map((l) => l.size).join(',')};background-position:${layers.map((l) => l.pos).join(',')};background-repeat:${layers.map((l) => l.rep).join(',')};`;
+  return { css, bgcolor };
 }
 
 /* ---------- element ---------- */
@@ -445,10 +493,12 @@ export function canvasHtml(doc: EmailDoc, device: Device): string {
 }
 
 /* ---------- automatic mobile behaviour: one source for export + editor ---------- */
-export function mobileRules(b: Brand): [string, string][] {
+export function mobileRules(b: Brand, f?: Frame): [string, string][] {
   const mp = b.mobilePad ?? 16;
+  // when the email floats on a styled page (rounded / background), keep a little page visible around it on phones
+  const outer = f && !isPlainFrame(f) ? `padding:${Math.min(f.inset, 16)}px 10px !important` : 'padding:0 !important';
   return [
-    ['.srm-outer', 'padding:0 !important'],
+    ['.srm-outer', outer],
     ['.srm-cell', `padding-left:${mp}px !important;padding-right:${mp}px !important`],
     ['.srm-col', 'max-width:100% !important;width:100% !important;padding:0 0 16px 0 !important'],
     ['.srm-hero-h', 'font-size:30px !important;line-height:1.2 !important'],
@@ -492,13 +542,16 @@ function badgeHtml(doc: EmailDoc): string {
 
 export function documentToHtml(doc: EmailDoc, opts: { marker?: boolean } = {}): string {
   const b = doc.brand;
-  const page = rc('@page', b), surface = rc('@surface', b);
+  const surface = rc('@surface', b);
+  const f = getFrame(doc);
+  const fp = frameStyle(doc);
+  const containerCss = `${f.radius ? `border-radius:${f.radius}px;overflow:hidden;border-collapse:separate;` : ''}${SHADOWS[f.shadow]}`;
   const rows = doc.sections.map((x) => sectionExport(x, b)).filter(Boolean).join('\n');
   const pre = doc.preheader
     ? `<div style="display:none;font-size:1px;color:${surface};line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden">${esc(doc.preheader)}${'&nbsp;&zwnj;'.repeat(40)}</div>\n`
     : '';
   const marker = opts.marker ? `<!--SRMAIL:v2:${encodeDoc(doc)}-->\n` : '';
-  const mq = mobileRules(b).map(([s, d]) => `${s}{${d}}`).join('');
+  const mq = mobileRules(b, f).map(([s, d]) => `${s}{${d}}`).join('');
   return `<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
@@ -516,10 +569,10 @@ img{-ms-interpolation-mode:bicubic}
 @media only screen and (max-width:480px){${mq}.srm-hide-m{display:none !important;max-height:0 !important;overflow:hidden !important;mso-hide:all}.srm-show-m{display:table-row !important;max-height:none !important;overflow:visible !important}}
 </style>
 </head>
-<body style="margin:0;padding:0;background:${page}">
-${marker}${pre}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${page}" style="background:${page}"><tr><td class="srm-outer" align="center" style="padding:24px 12px">
+<body style="margin:0;padding:0;background:${fp.bgcolor}">
+${marker}${pre}<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${fp.bgcolor}" style="background:${fp.bgcolor}"><tr><td class="srm-outer" align="center" style="${fp.css}padding:${f.inset}px 12px">
 <!--[if mso]><table role="presentation" width="${b.width}" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
-<table role="presentation" width="${b.width}" cellpadding="0" cellspacing="0" border="0" bgcolor="${surface}" style="width:100%;max-width:${b.width}px;background:${surface}">
+<table role="presentation" width="${b.width}" cellpadding="0" cellspacing="0" border="0" bgcolor="${surface}" style="width:100%;max-width:${b.width}px;background:${surface};${containerCss}">
 ${rows}
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
@@ -559,6 +612,12 @@ export function lintDoc(doc: EmailDoc): Check[] {
   if (bytes > 102_000) out.unshift({ level: 'warn', msg: `This email is ${(bytes / 1024).toFixed(0)} KB. Gmail clips messages over about 102 KB and hides the rest behind "View entire message".` });
   else if (bytes > 85_000) out.push({ level: 'info', msg: `This email is ${(bytes / 1024).toFixed(0)} KB, close to Gmail's ~102 KB clipping limit.` });
   if (!hasFooter) out.unshift({ level: 'warn', msg: 'No footer with an unsubscribe link. Most platforms require one.' });
+  const fr = getFrame(doc);
+  if (fr.shapes.length) hasShapes = true;
+  if ((fr.bgMode === 'image' || fr.bgMode === 'tile') && fr.bgImage.trim()) {
+    out.push({ level: 'info', msg: 'The page background image is hidden by Outlook desktop (it shows the page color instead).' });
+    if (fr.bgBlur > 0) out.push({ level: 'info', msg: 'Background blur is applied by the free wsrv.nl image service. If it is ever unavailable, the plain page color shows instead.' });
+  }
   if (hasShapes) out.push({ level: 'info', msg: 'Shapes are CSS gradient backgrounds: Apple Mail, iOS and most Gmail accounts show them; Outlook desktop shows the plain background colour instead.' });
   if (deviceSpecific) out.push({ level: 'info', msg: 'Device-specific layouts rely on media queries: Outlook desktop and Gmail-app non-Google accounts show the desktop version.' });
   return out;

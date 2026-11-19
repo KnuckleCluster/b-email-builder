@@ -8,6 +8,12 @@ import { startDrag } from '@/lib/dnd';
 import { useStore } from '@/lib/store';
 
 const CHIPS = ['Nature', 'Business', 'Tech', 'Food', 'People', 'Home', 'Shopping', 'Events'];
+/** Tell Unsplash a photo was used (their API guidelines). Fire and forget. */
+function trackUse(p: Photo) {
+  if (!p.track) return;
+  fetch('/api/photos/track', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: p.track }) }).catch(() => {});
+}
+
 const NOTICES: Record<string, string> = {
   busy: 'Live search is busy right now, so you’re seeing our hand-picked photos.',
   unavailable: 'Live search is unavailable right now, so you’re seeing our hand-picked photos.',
@@ -15,13 +21,14 @@ const NOTICES: Record<string, string> = {
 };
 
 /** Search + grid of free photos. Click a photo to use it; in the sidebar you can also drag it onto the canvas. */
-export default function PhotoBrowser({ onPick, draggable = false }: { onPick: (p: Photo) => void; draggable?: boolean }) {
+export default function PhotoBrowser({ onPick: pick, draggable = false }: { onPick: (p: Photo) => void; draggable?: boolean }) {
+  const onPick = (p: Photo) => { trackUse(p); pick(p); };
   const [q, setQ] = useState('');
   const [term, setTerm] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [source, setSource] = useState<'pexels' | 'curated' | ''>('');
+  const [source, setSource] = useState<'unsplash' | 'pexels' | 'curated' | ''>('');
   const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
   const req = useRef(0);
@@ -51,7 +58,7 @@ export default function PhotoBrowser({ onPick, draggable = false }: { onPick: (p
     if (!draggable || e.button !== 0) return;
     e.preventDefault();
     const action = { kind: 'el' as const, type: 'image' as const, preset: { src: p.url, alt: p.alt } };
-    startDrag(e, { kind: 'el', commit: (t) => useStore.getState().addFromAction(action, t) }, p.alt || 'Photo', () => onPick(p));
+    startDrag(e, { kind: 'el', commit: (t) => { trackUse(p); useStore.getState().addFromAction(action, t); } }, p.alt || 'Photo', () => onPick(p));
   };
 
   return (
@@ -66,14 +73,19 @@ export default function PhotoBrowser({ onPick, draggable = false }: { onPick: (p
       {notice && NOTICES[notice] && <p className="pb-notice">{NOTICES[notice]}</p>}
       <div className="pb-grid">
         {photos.map((p) => (
-          <button
-            key={p.id} type="button" className="ph" title={`${p.alt}${p.credit ? ` · ${p.credit}` : ''}`}
-            onPointerDown={draggable ? (e) => down(e, p) : undefined}
-            onClick={!draggable ? () => onPick(p) : undefined}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(p); } }}
-          >
-            <img src={p.thumb} alt={p.alt} loading="lazy" draggable={false} onError={(e) => ((e.currentTarget.parentElement as HTMLElement).style.display = 'none')} />
-          </button>
+          <div key={p.id} className="phw">
+            <button
+              type="button" className="ph" title={`${p.alt}${p.credit ? ` · ${p.credit}` : ''}`}
+              onPointerDown={draggable ? (e) => down(e, p) : undefined}
+              onClick={!draggable ? () => onPick(p) : undefined}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(p); } }}
+            >
+              <img src={p.thumb} alt={p.alt} loading="lazy" draggable={false} onError={(e) => ((e.currentTarget.closest('.phw') as HTMLElement).style.display = 'none')} />
+            </button>
+            {p.creditUrl && p.credit && p.credit !== 'Unsplash' && (
+              <a className="ph-credit" href={p.creditUrl} target="_blank" rel="noopener noreferrer">{p.credit}</a>
+            )}
+          </div>
         ))}
       </div>
       {loading && <div className="pb-loading"><LoaderCircle size={16} className="spin" /> Loading photos…</div>}
@@ -82,7 +94,7 @@ export default function PhotoBrowser({ onPick, draggable = false }: { onPick: (p
       <p className="pb-credit">
         {source === 'pexels'
           ? <>Photos provided by <a href="https://www.pexels.com" target="_blank" rel="noopener noreferrer">Pexels</a></>
-          : <>Free photos from <a href="https://unsplash.com" target="_blank" rel="noopener noreferrer">Unsplash</a></>}
+          : <>Free photos from <a href="https://unsplash.com/?utm_source=branded_email_maker&utm_medium=referral" target="_blank" rel="noopener noreferrer">Unsplash</a></>}
         {draggable && ' · drag onto the canvas or click to add'}
       </p>
     </div>
